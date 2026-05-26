@@ -1,7 +1,7 @@
 """
 Dino Game in Python
 A game similar to the famous Chrome Dino Game, built using pygame-ce.
-Made by intern: @Neel Verma, no one or nothing else.
+Made by intern: @Neel Verma, no one or nothing else. 🤖
 """
 
 import pygame
@@ -27,7 +27,12 @@ score_surf = game_font.render("SCORE?", False, "Black")
 score_rect = score_surf.get_rect(center=(400, 50))
 
 # Load sprite assets
-player_surf = pygame.image.load("graphics/player/player_walk_1.png").convert_alpha()
+player_walk_1 = pygame.image.load("graphics/player/player_walk_1.png").convert_alpha()
+player_walk_2 = pygame.image.load("graphics/player/player_walk_2.png").convert_alpha()
+player_walk_list = [player_walk_1, player_walk_2]
+player_index = 0.0  # Float tracker to control animation speed
+
+player_surf = player_walk_list[int(player_index)]
 player_rect = player_surf.get_rect(bottomleft=(25, GROUND_Y))
 egg_surf = pygame.image.load("graphics/egg/egg_1.png").convert_alpha()
 egg_rect = egg_surf.get_rect(bottomleft=(800, GROUND_Y))
@@ -63,6 +68,7 @@ while running:
                 start_time = pygame.time.get_ticks()  # Resets the start time anchor
                 score = 0  # Resets score back to zero
                 jump_count = 0  # Resets jump count back to zero
+                player_index = 0.0  # Resets animation state
 
     if is_playing:
         screen.fill("purple")  # Wipe the screen
@@ -91,9 +97,21 @@ while running:
         # Adjust player's vertical location then blit it
         players_gravity_speed += 1
         player_rect.y += players_gravity_speed
+        
+        # Player Animation & Ground logic
         if player_rect.bottom >= GROUND_Y:
             player_rect.bottom = GROUND_Y
             jump_count = 0  # Reset jump count when touching the ground
+            
+            # Animate running when on the ground
+            player_index += 0.15  # Increase this decimal to speed up the animation
+            if player_index >= len(player_walk_list):
+                player_index = 0
+            player_surf = player_walk_list[int(player_index)]
+        else:
+            # Display a static jump/mid-air frame when airborne
+            player_surf = player_walk_1
+            
         screen.blit(player_surf, player_rect)
 
         # When player collides with enemy, game ends
