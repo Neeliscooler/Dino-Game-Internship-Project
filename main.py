@@ -19,6 +19,11 @@ JUMP_GRAVITY_START_SPEED = -20  # The speed at which the player jumps
 players_gravity_speed = 0  # The current speed at which the player falls
 jump_count = 0  # Tracks how many jumps the player has made in mid-air
 
+# Lives tracking variables
+lives = 3  # Start with 3 lives
+invincible_timer = 0  # Tracks how long the player stays invincible after getting hit
+INVINCIBLE_DURATION = 1500  # Player is immune for 1.5 seconds (1500 milliseconds) after hit
+
 # Load level assets
 SKY_SURF = pygame.image.load("graphics/level/sky.png").convert()
 GROUND_SURF = pygame.image.load("graphics/level/ground.png").convert()
@@ -34,7 +39,14 @@ player_index = 0.0  # Float tracker to control animation speed
 
 player_surf = player_walk_list[int(player_index)]
 player_rect = player_surf.get_rect(bottomleft=(25, GROUND_Y))
-egg_surf = pygame.image.load("graphics/egg/egg_1.png").convert_alpha()
+
+# Load egg assets and animation variables
+egg_1 = pygame.image.load("graphics/egg/egg_1.png").convert_alpha()
+egg_2 = pygame.image.load("graphics/egg/egg_2.png").convert_alpha()
+egg_list = [egg_1, egg_2]
+egg_index = 0.0  # Float tracker to control egg animation speed
+
+egg_surf = egg_list[int(egg_index)]
 egg_rect = egg_surf.get_rect(bottomleft=(800, GROUND_Y))
 
 # Score tracking variables
@@ -69,9 +81,11 @@ while running:
                 score = 0  # Resets score back to zero
                 jump_count = 0  # Resets jump count back to zero
                 player_index = 0.0  # Resets animation state
+                egg_index = 0.0  # Resets egg animation state
+                lives = 3  # Resets lives back to three
+                invincible_timer = 0  # Resets invincibility state
 
     if is_playing:
-        screen.fill("purple")  # Wipe the screen
 
         # Calculates score based on elapsed seconds
         current_time = pygame.time.get_ticks() - start_time
@@ -88,10 +102,22 @@ while running:
         pygame.draw.rect(screen, "#c0e8ec", score_rect, 10)
         screen.blit(score_surf, score_rect)
 
-        # Adjust egg's horizontal location then blit it
+        # Show remaining lives on the top right
+        lives_surf = game_font.render(f"LIVES: {lives}", False, "Red")
+        lives_rect = lives_surf.get_rect(topright=(780, 20))
+        screen.blit(lives_surf, lives_rect)
+
+        # Adjust egg's horizontal location, animate it, then blit it
         egg_rect.x -= 5
         if egg_rect.right <= 0:
             egg_rect.left = 800
+            
+        # Animate egg continuously while playing
+        egg_index += 0.1  # Increase or decrease this decimal to adjust egg animation speed
+        if egg_index >= len(egg_list):
+            egg_index = 0
+        egg_surf = egg_list[int(egg_index)]
+        
         screen.blit(egg_surf, egg_rect)
 
         # Adjust player's vertical location then blit it
@@ -112,13 +138,28 @@ while running:
             # Display a static jump/mid-air frame when airborne
             player_surf = player_walk_1
             
-        screen.blit(player_surf, player_rect)
+        # Flicker effect if player is currently invincible
+        current_ticks = pygame.time.get_ticks()
+        if current_ticks < invincible_timer:
+            # Flashes character image by only blitting on alternating frames
+            if (current_ticks // 100) % 2 == 0:
+                screen.blit(player_surf, player_rect)
+        else:
+            screen.blit(player_surf, player_rect)
 
-        # When player collides with enemy, game ends
+        # When player collides with enemy, handle life loss
         if egg_rect.colliderect(player_rect):
-            is_playing = False
-            if score > high_score:
-                high_score = score  # Updates high score if current score is higher
+            # Check if player is allowed to take damage (not currently invincible)
+            if pygame.time.get_ticks() >= invincible_timer:
+                lives -= 1
+                if lives <= 0:
+                    is_playing = False
+                    if score > high_score:
+                        high_score = score  # Updates high score if current score is higher
+                else:
+                    # Give invincibility buffer and reset obstacle position
+                    invincible_timer = pygame.time.get_ticks() + INVINCIBLE_DURATION
+                    egg_rect.left = 800
 
     # When game is over, display game over message
     else:
