@@ -5,6 +5,7 @@ Made by intern: @Neel Verma, no one or nothing else. 🤖
 """
 
 import pygame
+from random import randint, choice
 
 # Initialize Pygame and create a window
 pygame.init()
@@ -49,6 +50,23 @@ egg_index = 0.0  # Float tracker to control egg animation speed
 egg_surf = egg_list[int(egg_index)]
 egg_rect = egg_surf.get_rect(bottomleft=(800, GROUND_Y))
 
+# (IN PROGRESS)Load fly assets and tracking lists for obstacle variance
+#fly_1 = pygame.image.load("graphics/fly/fly1.png").convert_alpha()
+#fly_2 = pygame.image.load("graphics/fly/fly2.png").convert_alpha()
+#fly_list = [fly_1, fly_2]
+#fly_index = 0.0
+#obstacle_rect_list = []
+
+# Audio assets(IN PROGRESS)
+#bg_music = pygame.mixer.Sound('audio/music.wav')
+#bg_music.play(loops=-1)
+#jump_sound = pygame.mixer.Sound('audio/jump.mp3')
+#jump_sound.set_volume(0.5)
+
+# Timer 
+obstacle_timer = pygame.USEREVENT + 1
+pygame.time.set_timer(obstacle_timer, 1500)
+
 # Score tracking variables
 high_score = 0
 start_time = 0
@@ -71,19 +89,27 @@ while running:
                 if player_rect.bottom >= GROUND_Y or jump_count < 2:
                     players_gravity_speed = JUMP_GRAVITY_START_SPEED
                     jump_count += 1
+                    #jump_sound.play() (IN PROGRESS)
+
+            #if event.type == obstacle_timer:
+            #    if choice(['fly', 'egg', 'egg', 'egg']) == 'fly':
+            #        obstacle_rect_list.append(fly_list[0].get_rect(midbottom=(randint(900, 1100), 210)))
+            #    else:
+            #        obstacle_rect_list.append(egg_list[0].get_rect(midbottom=(randint(900, 1100), GROUND_Y)))
 
         else:
             # When player wants to play again by pressing SPACE
             if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
                 is_playing = True
                 egg_rect.left = 800
+                obstacle_rect_list.clear()
                 start_time = pygame.time.get_ticks()  # Resets the start time anchor
                 score = 0  # Resets score back to zero
-                jump_count = 0  # Resets jump count back to zero
+                jump_count = 0  # Tracks how many jumps the player has made in mid-air
                 player_index = 0.0  # Resets animation state
                 egg_index = 0.0  # Resets egg animation state
-                lives = 3  # Resets lives back to three
-                invincible_timer = 0  # Resets invincibility state
+                lives = 3  # Start with 3 lives
+                invincible_timer = 0  # Tracks how long the player stays invincible after getting hit
 
     if is_playing:
 
@@ -107,18 +133,28 @@ while running:
         lives_rect = lives_surf.get_rect(topright=(780, 20))
         screen.blit(lives_surf, lives_rect)
 
-        # Adjust egg's horizontal location, animate it, then blit it
-        egg_rect.x -= 5
-        if egg_rect.right <= 0:
-            egg_rect.left = 800
+        # Adjust egg's horizontal location, animate it, then blit it (IN PROGRESS)
+        #for active_obs in obstacle_rect_list:
+        #    active_obs.x -= 5
+        #obstacle_rect_list = [obs for obs in obstacle_rect_list if obs.right > 0]
             
         # Animate egg continuously while playing
-        egg_index += 0.1  # Increase or decrease this decimal to adjust egg animation speed
+        egg_index += 0.2  # Increase or decrease this decimal to adjust egg animation speed
         if egg_index >= len(egg_list):
             egg_index = 0
         egg_surf = egg_list[int(egg_index)]
         
-        screen.blit(egg_surf, egg_rect)
+        #IN PROGRESS
+        #fly_index += 0.2
+        #if fly_index >= len(fly_list):
+        #    fly_index = 0
+        #fly_surf = fly_list[int(fly_index)]
+
+        #for active_obs in obstacle_rect_list:
+        #    if active_obs.bottom == GROUND_Y:
+        #        screen.blit(egg_surf, active_obs)
+        #    else:
+        #        screen.blit(fly_surf, active_obs)
 
         # Adjust player's vertical location then blit it
         players_gravity_speed += 1
@@ -141,25 +177,27 @@ while running:
         # Flicker effect if player is currently invincible
         current_ticks = pygame.time.get_ticks()
         if current_ticks < invincible_timer:
-            # Flashes character image by only blitting on alternating frames
+            # Flashes character image by only turning invisible every other frame
             if (current_ticks // 100) % 2 == 0:
                 screen.blit(player_surf, player_rect)
         else:
             screen.blit(player_surf, player_rect)
 
         # When player collides with enemy, handle life loss
-        if egg_rect.colliderect(player_rect):
-            # Check if player is allowed to take damage (not currently invincible)
-            if pygame.time.get_ticks() >= invincible_timer:
-                lives -= 1
-                if lives <= 0:
-                    is_playing = False
-                    if score > high_score:
-                        high_score = score  # Updates high score if current score is higher
-                else:
-                    # Give invincibility buffer and reset obstacle position
-                    invincible_timer = pygame.time.get_ticks() + INVINCIBLE_DURATION
-                    egg_rect.left = 800
+        #for egg_rect in obstacle_rect_list:
+            if egg_rect.colliderect(player_rect):
+                # Check if player is allowed to take damage (not currently invincible)
+                if pygame.time.get_ticks() >= invincible_timer:
+                    lives -= 1
+                    if lives <= 0:
+                        is_playing = False
+                        if score > high_score:
+                            high_score = score  # Updates high score if current score is higher
+                    else:
+                        # Give invincibility buffer and reset obstacle position
+                        invincible_timer = pygame.time.get_ticks() + INVINCIBLE_DURATION
+                        obstacle_rect_list.remove(egg_rect)
+                        break
 
     # When game is over, display game over message
     else:
