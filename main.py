@@ -42,20 +42,27 @@ player_surf = player_walk_list[int(player_index)]
 player_rect = player_surf.get_rect(bottomleft=(25, GROUND_Y))
 
 # Load egg assets and animation variables
-egg_1 = pygame.image.load("graphics/egg/egg_1.png").convert_alpha()
-egg_2 = pygame.image.load("graphics/egg/egg_2.png").convert_alpha()
+egg_1 = pygame.image.load("graphics/egg-enemies/egg_1.png").convert_alpha()
+egg_2 = pygame.image.load("graphics/egg-enemies/egg_2.png").convert_alpha()
 egg_list = [egg_1, egg_2]
 egg_index = 0.0  # Float tracker to control egg animation speed
 
 egg_surf = egg_list[int(egg_index)]
 egg_rect = egg_surf.get_rect(bottomleft=(800, GROUND_Y))
 
-# (IN PROGRESS)Load fly assets and tracking lists for obstacle variance
-#fly_1 = pygame.image.load("graphics/fly/fly1.png").convert_alpha()
-#fly_2 = pygame.image.load("graphics/fly/fly2.png").convert_alpha()
-#fly_list = [fly_1, fly_2]
-#fly_index = 0.0
-#obstacle_rect_list = []
+#Load sunny side up assets, resizing it, and tracking lists for obstacle variance
+resize_sunnyside_up_1 = pygame.transform.scale(pygame.image.load("graphics/egg-enemies/sunnyside_up_1.png"), (100, 100)).convert_alpha()
+resize_sunnyside_up_2 = pygame.transform.scale(pygame.image.load("graphics/egg-enemies/sunnyside_up_2.png"), (100, 100)).convert_alpha()
+
+# Load sunny side up assets, resizing it, and tracking lists for obstacle variance
+resize_sunnyside_up_1 = pygame.transform.scale(pygame.image.load("graphics/egg-enemies/sunnyside_up_1.png"), (100, 100)).convert_alpha()
+resize_sunnyside_up_2 = pygame.transform.scale(pygame.image.load("graphics/egg-enemies/sunnyside_up_2.png"), (100, 100)).convert_alpha()
+
+# Use the scaled surfaces directly in the list
+sunnyside_up_list = [resize_sunnyside_up_1, resize_sunnyside_up_2]
+sunnyside_up_index = 0.0
+obstacle_rect_list = []
+
 
 # Audio assets(IN PROGRESS)
 #bg_music = pygame.mixer.Sound('audio/music.wav')
@@ -91,11 +98,11 @@ while running:
                     jump_count += 1
                     #jump_sound.play() (IN PROGRESS)
 
-            #if event.type == obstacle_timer:
-            #    if choice(['fly', 'egg', 'egg', 'egg']) == 'fly':
-            #        obstacle_rect_list.append(fly_list[0].get_rect(midbottom=(randint(900, 1100), 210)))
-            #    else:
-            #        obstacle_rect_list.append(egg_list[0].get_rect(midbottom=(randint(900, 1100), GROUND_Y)))
+            if event.type == obstacle_timer:
+                if choice(['sunnyside_up', 'egg', 'egg', 'egg']) == 'sunnyside_up':
+                    obstacle_rect_list.append(sunnyside_up_list[0].get_rect(midbottom=(randint(900, 1100), 210)))
+                else:
+                    obstacle_rect_list.append(egg_list[0].get_rect(midbottom=(randint(900, 1100), GROUND_Y)))
 
         else:
             # When player wants to play again by pressing SPACE
@@ -134,9 +141,9 @@ while running:
         screen.blit(lives_surf, lives_rect)
 
         # Adjust egg's horizontal location, animate it, then blit it (IN PROGRESS)
-        #for active_obs in obstacle_rect_list:
-        #    active_obs.x -= 5
-        #obstacle_rect_list = [obs for obs in obstacle_rect_list if obs.right > 0]
+        for active_obs in obstacle_rect_list:
+            active_obs.x -= 5
+        obstacle_rect_list = [obs for obs in obstacle_rect_list if obs.right > 0]
             
         # Animate egg continuously while playing
         egg_index += 0.2  # Increase or decrease this decimal to adjust egg animation speed
@@ -144,17 +151,17 @@ while running:
             egg_index = 0
         egg_surf = egg_list[int(egg_index)]
         
-        #IN PROGRESS
-        #fly_index += 0.2
-        #if fly_index >= len(fly_list):
-        #    fly_index = 0
-        #fly_surf = fly_list[int(fly_index)]
+        #Moves sunny side up
+        sunnyside_up_index += 0.2
+        if sunnyside_up_index >= len(sunnyside_up_list):
+            sunnyside_up_index = 0
+        sunnyside_up_surf = sunnyside_up_list[int(sunnyside_up_index)]
 
-        #for active_obs in obstacle_rect_list:
-        #    if active_obs.bottom == GROUND_Y:
-        #        screen.blit(egg_surf, active_obs)
-        #    else:
-        #        screen.blit(fly_surf, active_obs)
+        for active_obs in obstacle_rect_list:
+            if active_obs.bottom == GROUND_Y:
+                screen.blit(egg_surf, active_obs)
+            else:
+                screen.blit(sunnyside_up_surf, active_obs)
 
         # Adjust player's vertical location then blit it
         players_gravity_speed += 1
@@ -184,9 +191,9 @@ while running:
             screen.blit(player_surf, player_rect)
 
         # When player collides with enemy, handle life loss
-        #for egg_rect in obstacle_rect_list:
+        for egg_rect in obstacle_rect_list:
             if egg_rect.colliderect(player_rect):
-                # Check if player is allowed to take damage (not currently invincible)
+                #Check if player is allowed to take damage (not currently invincible)
                 if pygame.time.get_ticks() >= invincible_timer:
                     lives -= 1
                     if lives <= 0:
