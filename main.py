@@ -20,6 +20,10 @@ JUMP_GRAVITY_START_SPEED = -20  # The speed at which the player jumps
 players_gravity_speed = 0  # The current speed at which the player falls
 jump_count = 0  # Tracks how many jumps the player has made in mid-air
 
+# Difficulty and speed scaling variables
+game_speed = 5  # Base speed at which obstacles travel horizontally
+difficulty_level = 0  # Tracks current stage of dynamic speed scaling
+
 # Lives tracking variables
 lives = 3  # Start with 3 lives
 invincible_timer = 0  # Tracks how long the player stays invincible after getting hit
@@ -50,10 +54,6 @@ egg_index = 0.0  # Float tracker to control egg animation speed
 egg_surf = egg_list[int(egg_index)]
 egg_rect = egg_surf.get_rect(bottomleft=(800, GROUND_Y))
 
-#Load sunny side up assets, resizing it, and tracking lists for obstacle variance
-resize_sunnyside_up_1 = pygame.transform.scale(pygame.image.load("graphics/egg-enemies/sunnyside_up_1.png"), (100, 100)).convert_alpha()
-resize_sunnyside_up_2 = pygame.transform.scale(pygame.image.load("graphics/egg-enemies/sunnyside_up_2.png"), (100, 100)).convert_alpha()
-
 # Load sunny side up assets, resizing it, and tracking lists for obstacle variance
 resize_sunnyside_up_1 = pygame.transform.scale(pygame.image.load("graphics/egg-enemies/sunnyside_up_1.png"), (100, 100)).convert_alpha()
 resize_sunnyside_up_2 = pygame.transform.scale(pygame.image.load("graphics/egg-enemies/sunnyside_up_2.png"), (100, 100)).convert_alpha()
@@ -62,7 +62,6 @@ resize_sunnyside_up_2 = pygame.transform.scale(pygame.image.load("graphics/egg-e
 sunnyside_up_list = [resize_sunnyside_up_1, resize_sunnyside_up_2]
 sunnyside_up_index = 0.0
 obstacle_rect_list = []
-
 
 # Audio assets(IN PROGRESS)
 #bg_music = pygame.mixer.Sound('audio/music.wav')
@@ -99,8 +98,15 @@ while running:
                     #jump_sound.play() (IN PROGRESS)
 
             if event.type == obstacle_timer:
-                if choice(['sunnyside_up', 'egg', 'egg', 'egg']) == 'sunnyside_up':
+                # Randomize choosing between a high hazard, a ground hazard, or a rare score item
+                spawn_choice = choice(['sunnyside_up', 'egg', 'egg', 'egg', 'star'])
+                if spawn_choice == 'sunnyside_up':
                     obstacle_rect_list.append(sunnyside_up_list[0].get_rect(midbottom=(randint(900, 1100), 210)))
+                elif spawn_choice == 'star':
+                    # Create a standalone target rect suspended in the air for a score booster item
+                    star_rect = pygame.Rect(0, 0, 30, 30)
+                    star_rect.midbottom = (randint(900, 1100), 150)
+                    obstacle_rect_list.append(star_rect)
                 else:
                     obstacle_rect_list.append(egg_list[0].get_rect(midbottom=(randint(900, 1100), GROUND_Y)))
 
@@ -117,12 +123,22 @@ while running:
                 egg_index = 0.0  # Resets egg animation state
                 lives = 3  # Start with 3 lives
                 invincible_timer = 0  # Tracks how long the player stays invincible after getting hit
+                game_speed = 5  # Resets obstacle tracking speed back to base value
+                difficulty_level = 0  # Resets difficulty progression thresholds
+                pygame.time.set_timer(obstacle_timer, 1500)  # Resets base spawn delays
 
     if is_playing:
 
         # Calculates score based on elapsed seconds
         current_time = pygame.time.get_ticks() - start_time
         score = current_time // 1000  # Convert milliseconds to seconds
+
+        # Dynamically scale difficulty and speed as score increases
+        game_speed = 5 + (score // 10)
+        new_level = score // 15
+        if new_level > difficulty_level:
+            difficulty_level = new_level
+            pygame.time.set_timer(obstacle_timer, max(600, 1500 - (difficulty_level * 150)))
 
         # Shows font on game screen
         score_surf = game_font.render(f"SCORE: {score}", False, "Black")
@@ -142,7 +158,7 @@ while running:
 
         # Adjust egg's horizontal location, animate it, then blit it (IN PROGRESS)
         for active_obs in obstacle_rect_list:
-            active_obs.x -= 5
+            active_obs.x -= game_speed
         obstacle_rect_list = [obs for obs in obstacle_rect_list if obs.right > 0]
             
         # Animate egg continuously while playing
@@ -160,8 +176,12 @@ while running:
         for active_obs in obstacle_rect_list:
             if active_obs.bottom == GROUND_Y:
                 screen.blit(egg_surf, active_obs)
-            else:
+            elif active_obs.bottom == 210:
                 screen.blit(sunnyside_up_surf, active_obs)
+            else:
+                # Draw a shiny golden star collectible using pygame primitives
+                pygame.draw.circle(screen, "Gold", active_obs.center, 15)
+                pygame.draw.circle(screen, "White", (active_obs.center[0] - 4, active_obs.center[1] - 4), 4)
 
         # Adjust player's vertical location then blit it
         players_gravity_speed += 1
@@ -191,20 +211,25 @@ while running:
             screen.blit(player_surf, player_rect)
 
         # When player collides with enemy, handle life loss
-        for egg_rect in obstacle_rect_list:
+        for egg_rect in obstacle_rect_list[:]:
             if egg_rect.colliderect(player_rect):
-                #Check if player is allowed to take damage (not currently invincible)
-                if pygame.time.get_ticks() >= invincible_timer:
-                    lives -= 1
-                    if lives <= 0:
-                        is_playing = False
-                        if score > high_score:
-                            high_score = score  # Updates high score if current score is higher
-                    else:
-                        # Give invincibility buffer and reset obstacle position
-                        invincible_timer = pygame.time.get_ticks() + INVINCIBLE_DURATION
-                        obstacle_rect_list.remove(egg_rect)
-                        break
+                if egg_rect.bottom != GROUND_Y and egg_rect.bottom != 210:
+                    # It's a star! Grant bonus score points and clean out tracking object
+                    score += 3
+                    obstacle_rect_list.remove(egg_rect)
+                else:
+                    #Check if player is allowed to take damage (not currently invincible)
+                    if pygame.time.get_ticks() >= invincible_timer:
+                        lives -= 1
+                        if lives <= 0:
+                            is_playing = False
+                            if score > high_score:
+                                high_score = score  # Updates high score if current score is higher
+                        else:
+                            # Give invincibility buffer and reset obstacle position
+                            invincible_timer = pygame.time.get_ticks() + INVINCIBLE_DURATION
+                            obstacle_rect_list.remove(egg_rect)
+                            break
 
     # When game is over, display game over message
     else:
