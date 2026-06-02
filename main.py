@@ -98,7 +98,7 @@ start_time = 0
 score = 0
 
 
-# --- GAME FUNCTIONS ---
+# GAME FUNCTIONS
 
 def display_score():
     global score, score_surf, score_rect
@@ -167,7 +167,7 @@ def player_animation():
         player_surf = player_jump
 
 
-# --- MAIN GAME LOOP ---
+# MAIN GAME LOOP
 
 while running:
     current_ticks = pygame.time.get_ticks()
@@ -254,7 +254,7 @@ while running:
         screen.blit(GROUND_SURF, (0, GROUND_Y))
         score = display_score()
 
-        # Render lives HUD
+        # Render lives section of screen
         lives_surf = game_font.render(f"LIVES: {lives}", False, "Red")
         lives_rect = lives_surf.get_rect(topright=(780, 20))
         screen.blit(lives_surf, lives_rect)
@@ -324,7 +324,7 @@ while running:
         # Check hazard hit collisions
         is_playing = collisions(player_rect, obstacle_rect_list)
 
-        # Render Active Powerup Timers on Left HUD
+        # Render Active Powerup Timers on Left side of screen
         hud_y = 80
         if current_ticks < invincible_timer and (invincible_timer - current_ticks) > INVINCIBLE_DURATION:
             rem = (invincible_timer - current_ticks) // 1000
