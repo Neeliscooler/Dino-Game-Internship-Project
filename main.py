@@ -78,6 +78,10 @@ resize_sunnyside_up_2 = pygame.transform.scale(pygame.image.load("graphics/egg-e
 
 sunnyside_up_list = [resize_sunnyside_up_1, resize_sunnyside_up_2]
 sunnyside_up_index = 0.0
+
+# Load coin asset
+coin_surf = pygame.image.load("graphics/collectibles/coin.png").convert_alpha()
+
 obstacle_rect_list = []
 powerup_rect_list = []  
 
@@ -121,8 +125,7 @@ def obstacle_movement(obstacle_list):
             elif active_obs.bottom == 210:
                 screen.blit(sunnyside_up_surf, active_obs)
             else:
-                pygame.draw.circle(screen, "Gold", active_obs.center, 15)
-                pygame.draw.circle(screen, "White", (active_obs.center[0] - 4, active_obs.center[1] - 4), 4)
+                screen.blit(coin_surf, active_obs)
 
         obstacle_list = [obs for obs in obstacle_list if obs.right > 0]
         return obstacle_list
@@ -199,9 +202,7 @@ while running:
                 if spawn_choice == 'sunnyside_up':
                     obstacle_rect_list.append(sunnyside_up_list[0].get_rect(midbottom=(randint(900, 1100), 210)))
                 elif spawn_choice == 'coin':
-                    coin_rect = pygame.Rect(0, 0, 30, 30)
-                    coin_rect.midbottom = (randint(900, 1100), 150)
-                    obstacle_rect_list.append(coin_rect)
+                    obstacle_rect_list.append(coin_surf.get_rect(midbottom=(randint(900, 1100), 150)))
                 else:
                     obstacle_rect_list.append(egg_list[0].get_rect(midbottom=(randint(900, 1100), GROUND_Y)))
 
@@ -271,7 +272,7 @@ while running:
         if egg_index >= len(egg_list): egg_index = 0
         egg_surf = egg_list[int(egg_index)]
         
-        sunnyside_up_index += 0.2
+        sunnyside_up_index += 0.05
         if sunnyside_up_index >= len(sunnyside_up_list): sunnyside_up_index = 0
         sunnyside_up_surf = sunnyside_up_list[int(sunnyside_up_index)]
 
