@@ -79,6 +79,13 @@ resize_sunnyside_up_2 = pygame.transform.scale(pygame.image.load("graphics/egg-e
 sunnyside_up_list = [resize_sunnyside_up_1, resize_sunnyside_up_2]
 sunnyside_up_index = 0.0
 
+# Load eggsaucer assets
+eggsaucer_1 = pygame.transform.scale(pygame.image.load("graphics/egg-enemies/eggsaucer_1.png"), (100, 60)).convert_alpha()
+eggsaucer_2 = pygame.transform.scale(pygame.image.load("graphics/egg-enemies/eggsaucer_2.png"), (100, 60)).convert_alpha()
+eggsaucer_list = [eggsaucer_1, eggsaucer_2]
+eggsaucer_index = 0.0
+eggsaucer_surf = eggsaucer_list[int(eggsaucer_index)]
+
 # Load coin asset
 coin_surf = pygame.image.load("graphics/collectibles/coin.png").convert_alpha()
 
@@ -124,6 +131,17 @@ def obstacle_movement(obstacle_list):
                 screen.blit(egg_surf, active_obs)
             elif active_obs.bottom == 210:
                 screen.blit(sunnyside_up_surf, active_obs)
+            elif active_obs.bottom == 120:
+                beam_color = "Yellow" if (pygame.time.get_ticks() // 200) % 2 == 0 else "Orange"
+                beam_rect = pygame.Rect(active_obs.left, active_obs.bottom, active_obs.width, GROUND_Y - active_obs.bottom)
+                beam_surf = pygame.Surface((beam_rect.width, beam_rect.height), pygame.SRCALPHA)
+                if beam_color == "Yellow":
+                    beam_surf.fill((255, 255, 0, 80))
+                else:
+                    beam_surf.fill((255, 165, 0, 80))
+                screen.blit(beam_surf, beam_rect)
+                
+                screen.blit(eggsaucer_surf, active_obs)
             else:
                 screen.blit(coin_surf, active_obs)
 
@@ -138,7 +156,7 @@ def collisions(player, obstacles):
     if obstacles:
         for egg_rect in obstacles[:]:
             if egg_rect.colliderect(player):
-                if egg_rect.bottom != GROUND_Y and egg_rect.bottom != 210:
+                if egg_rect.bottom == 150:
                     score += 3
                     obstacles.remove(egg_rect)
                 else:
@@ -182,7 +200,7 @@ while running:
             # Press 'W' to use screen clear bomb
             if event.type == pygame.KEYDOWN and event.key == pygame.K_w:
                 if current_ticks < egg_clear_stocked_until:
-                    obstacle_rect_list = [obs for obs in obstacle_rect_list if obs.bottom not in (GROUND_Y, 210)]
+                    obstacle_rect_list = [obs for obs in obstacle_rect_list if obs.bottom not in (GROUND_Y, 210, 120)]
                     egg_clear_stocked_until = 0  
 
             # Handle jumping (Space or Mouse Click)
@@ -198,9 +216,11 @@ while running:
 
             # Spawn obstacles
             if event.type == obstacle_timer:
-                spawn_choice = choice(['sunnyside_up', 'egg', 'egg', 'egg', 'coin'])
+                spawn_choice = choice(['sunnyside_up', 'egg', 'egg', 'egg', 'coin', 'eggsaucer'])
                 if spawn_choice == 'sunnyside_up':
                     obstacle_rect_list.append(sunnyside_up_list[0].get_rect(midbottom=(randint(900, 1100), 210)))
+                elif spawn_choice == 'eggsaucer':
+                    obstacle_rect_list.append(eggsaucer_list[0].get_rect(midbottom=(randint(900, 1100), 120)))
                 elif spawn_choice == 'coin':
                     obstacle_rect_list.append(coin_surf.get_rect(midbottom=(randint(900, 1100), 150)))
                 else:
@@ -231,6 +251,7 @@ while running:
                 jump_count = 0  
                 player_index = 0.0  
                 egg_index = 0.0  
+                eggsaucer_index = 0.0
                 lives = 3  
                 invincible_timer = 0  
                 game_speed = 5  
@@ -276,6 +297,10 @@ while running:
         if sunnyside_up_index >= len(sunnyside_up_list): sunnyside_up_index = 0
         sunnyside_up_surf = sunnyside_up_list[int(sunnyside_up_index)]
 
+        eggsaucer_index += 0.1
+        if eggsaucer_index >= len(eggsaucer_list): eggsaucer_index = 0
+        eggsaucer_surf = eggsaucer_list[int(eggsaucer_index)]
+
         # Render active powerup tokens on screen
         for pu in powerup_rect_list:
             if pu['type'] == 'invincible': color, label = "Blue", "I"
@@ -290,8 +315,19 @@ while running:
             screen.blit(lbl_surf, lbl_rect)
 
         # Apply gravity and update player vertical position
-        players_gravity_speed += 1
-        player_rect.y += players_gravity_speed
+        player_under_beam = False
+        for obs in obstacle_rect_list:
+            if obs.bottom == 120:
+                if player_rect.right > obs.left and player_rect.left < obs.right:
+                    player_under_beam = True
+                    break
+
+        if player_under_beam:
+            players_gravity_speed += 1
+            player_rect.y += players_gravity_speed * 0.5
+        else:
+            players_gravity_speed += 1
+            player_rect.y += players_gravity_speed
         
         if player_rect.bottom >= GROUND_Y:
             player_rect.bottom = GROUND_Y
