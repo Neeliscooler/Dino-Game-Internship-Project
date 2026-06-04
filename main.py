@@ -33,6 +33,7 @@ jump_count = 0
 
 # Difficulty and speed scaling
 game_speed = 5  
+current_speed = 5  
 difficulty_level = 0  
 
 # Lives and invincibility variables
@@ -78,6 +79,7 @@ resize_sunnyside_up_2 = pygame.transform.scale(pygame.image.load("graphics/egg-e
 
 sunnyside_up_list = [resize_sunnyside_up_1, resize_sunnyside_up_2]
 sunnyside_up_index = 0.0
+sunnyside_up_surf = sunnyside_up_list[int(sunnyside_up_index)]  # Fixed: Initialized early to prevent NameError crash
 
 # Load eggsaucer assets
 eggsaucer_1 = pygame.transform.scale(pygame.image.load("graphics/egg-enemies/eggsaucer_1.png"), (100, 60)).convert_alpha()
@@ -108,6 +110,7 @@ score = 0
 # GAME FUNCTIONS
 
 def display_score():
+    """Calculates the runtime score based on game ticks and draws it to the screen HUD."""
     global score, score_surf, score_rect
     current_time = pygame.time.get_ticks() - start_time
     score = current_time // 1000  
@@ -122,6 +125,7 @@ def display_score():
 
 
 def obstacle_movement(obstacle_list):
+    """Updates coordinate position of enemies and draws them based on their spawn heights."""
     if obstacle_list:
         for active_obs in obstacle_list:
             active_obs.x -= current_speed
@@ -152,6 +156,7 @@ def obstacle_movement(obstacle_list):
 
 
 def collisions(player, obstacles):
+    """Checks hitbox collisions between the player, coins, enemis, and filters invincibility logic."""
     global lives, is_playing, high_score, invincible_timer, score
     if obstacles:
         for egg_rect in obstacles[:]:
@@ -175,6 +180,7 @@ def collisions(player, obstacles):
 
 
 def player_animation():
+    """Swaps walking frames based on ground state or overrides with the jump surface asset."""
     global player_index, player_surf
     if player_rect.bottom >= GROUND_Y:
         player_index += 0.15  
@@ -237,7 +243,6 @@ while running:
             # Restart game on SPACE press
             if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
                 is_playing = True
-                egg_rect.left = 800
                 obstacle_rect_list.clear()
                 powerup_rect_list.clear()  
                 
@@ -246,6 +251,7 @@ while running:
                 slow_mo_until = 0
                 triple_jump_until = 0
                 
+                # Reset internal tracker systems
                 start_time = pygame.time.get_ticks()  
                 score = 0  
                 jump_count = 0  
@@ -314,7 +320,7 @@ while running:
             lbl_rect = lbl_surf.get_rect(center=pu['rect'].center)
             screen.blit(lbl_surf, lbl_rect)
 
-        # Apply gravity and update player vertical position
+        # Apply gravity mechanics and handle anti-gravity beam adjustments
         player_under_beam = False
         for obs in obstacle_rect_list:
             if obs.bottom == 120:
