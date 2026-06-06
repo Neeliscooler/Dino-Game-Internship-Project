@@ -3,7 +3,7 @@ Dino Game in Python
 A game similar to the famous Chrome Dino Game, built using pygame-ce.
 Made by intern: @Neel Verma, no one or nothing else. 🤖
 Overall Modifications: Added lives, post-hit invincibility, double jumping, power ups (Invincibility, Triple Jump, Time Slow, Egg Bomb, and Extra Life),
-Coins, more enemies, On screen HUD(score and lives), and a game over screen which displays the highscore.
+Coins, stars which increase the score, more enemies, On screen HUD(score, lives, and coin counter), and a game over screen which displays the highscore, score achieved and coins recieved this run.
 
 """
 
@@ -45,6 +45,7 @@ INVINCIBLE_DURATION = 1500
 egg_clear_stocked_until = 0  # Screen clear with 'W'
 slow_mo_until = 0            # Slow-Mo effect
 triple_jump_until = 0         # Triple jump effect (15 seconds)
+explosion_end_time = 0       # Screen bomb explosion flash timestamp
 
 # Load background and font assets
 SKY_SURF = pygame.image.load("graphics/level/sky.png").convert()
@@ -60,6 +61,12 @@ player_walk_2 = pygame.image.load("graphics/player/player_walk_2.png").convert_a
 player_walk_list = [player_walk_1, player_walk_2]
 player_index = 0.0  
 player_jump = pygame.image.load('graphics/player/player_jump.png').convert_alpha()
+
+# Load triple jump alternate player assets
+tj_walk_1 = pygame.transform.scale(pygame.image.load("graphics/player/triplejump_walk_1.png"), (100,100)).convert_alpha()
+tj_walk_2 = pygame.transform.scale(pygame.image.load("graphics/player/triplejump_walk_2.png"), (100, 100)).convert_alpha()
+tj_walk_list = [tj_walk_1, tj_walk_2]
+tj_jump =  pygame.transform.scale(pygame.image.load("graphics/player/triplejump_jump.png"), (100, 100)).convert_alpha()
 
 player_surf = player_walk_list[int(player_index)]
 player_rect = player_surf.get_rect(bottomleft=(25, GROUND_Y))
@@ -91,6 +98,13 @@ eggsaucer_surf = eggsaucer_list[int(eggsaucer_index)]
 # Load coin asset
 coin_surf = pygame.image.load("graphics/collectibles/coin.png").convert_alpha()
 
+# Load star asset
+star_surf = pygame.transform.scale(pygame.image.load("graphics/collectibles/star.png"), (70, 70)).convert_alpha()
+
+# load power up related assets
+egg_bomb_explosion_surf = pygame.transform.scale(pygame.image.load("graphics/collectibles/egg_bomb_explosion.png"), (200,200)).convert_alpha()
+extra_life_potion_surf = pygame.image.load("graphics/collectibles/extra_life_potion.png").convert_alpha()
+
 obstacle_rect_list = []
 powerup_rect_list = []  
 
@@ -105,6 +119,8 @@ pygame.time.set_timer(powerup_timer, 40000)  # Spawns every 40 seconds
 high_score = 0
 start_time = 0
 score = 0
+bonus_score = 0
+coins_collected = 0
 
 
 # GAME FUNCTIONS
@@ -113,7 +129,7 @@ def display_score():
     """Calculates the runtime score based on game ticks and draws it to the screen HUD."""
     global score, score_surf, score_rect
     current_time = pygame.time.get_ticks() - start_time
-    score = current_time // 1000  
+    score = (current_time // 1000) + bonus_score  
 
     score_surf = game_font.render(f"SCORE: {score}", False, "Black")
     score_rect = score_surf.get_rect(center=(400, 50))
@@ -135,6 +151,8 @@ def obstacle_movement(obstacle_list):
                 screen.blit(egg_surf, active_obs)
             elif active_obs.bottom == 210:
                 screen.blit(sunnyside_up_surf, active_obs)
+            elif active_obs.bottom == 180:
+                screen.blit(star_surf, active_obs)  # Render star collectible
             elif active_obs.bottom == 120:
                 beam_color = "Yellow" if (pygame.time.get_ticks() // 200) % 2 == 0 else "Orange"
                 beam_rect = pygame.Rect(active_obs.left, active_obs.bottom, active_obs.width, GROUND_Y - active_obs.bottom)
@@ -157,12 +175,15 @@ def obstacle_movement(obstacle_list):
 
 def collisions(player, obstacles):
     """Checks hitbox collisions between the player, coins, enemis, and filters invincibility logic."""
-    global lives, is_playing, high_score, invincible_timer, score
+    global lives, is_playing, high_score, invincible_timer, score, coins_collected, bonus_score
     if obstacles:
         for egg_rect in obstacles[:]:
             if egg_rect.colliderect(player):
-                if egg_rect.bottom == 150:
-                    score += 3
+                if egg_rect.bottom == 180:
+                    bonus_score += 1
+                    obstacles.remove(egg_rect)
+                elif egg_rect.bottom == 150:
+                    coins_collected += 1
                     obstacles.remove(egg_rect)
                 else:
                     if current_ticks >= invincible_timer:
@@ -182,13 +203,18 @@ def collisions(player, obstacles):
 def player_animation():
     """Swaps walking frames based on ground state or overrides with the jump surface asset."""
     global player_index, player_surf
+    
+    # Determine the correct sheet depending on triple jump status
+    current_walk_list = tj_walk_list if current_ticks < triple_jump_until else player_walk_list
+    current_jump_surf = tj_jump if current_ticks < triple_jump_until else player_jump
+
     if player_rect.bottom >= GROUND_Y:
         player_index += 0.15  
-        if player_index >= len(player_walk_list):
+        if player_index >= len(current_walk_list):
             player_index = 0
-        player_surf = player_walk_list[int(player_index)]
+        player_surf = current_walk_list[int(player_index)]
     else:
-        player_surf = player_jump
+        player_surf = current_jump_surf
 
 
 # MAIN GAME LOOP
@@ -206,8 +232,9 @@ while running:
             # Press 'W' to use screen clear bomb
             if event.type == pygame.KEYDOWN and event.key == pygame.K_w:
                 if current_ticks < egg_clear_stocked_until:
-                    obstacle_rect_list = [obs for obs in obstacle_rect_list if obs.bottom not in (GROUND_Y, 210, 120)]
+                    obstacle_rect_list = [obs for obs in obstacle_rect_list if obs.bottom not in (GROUND_Y, 210, 120, 180)]
                     egg_clear_stocked_until = 0  
+                    explosion_end_time = current_ticks + 600  # Set duration timer for full screen flash
 
             # Handle jumping (Space or Mouse Click)
             if (event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE 
@@ -220,15 +247,17 @@ while running:
                     #jump_sound.play()
                     jump_count += 1
 
-            # Spawn obstacles
+            # Spawn obstacles/collectibles
             if event.type == obstacle_timer:
-                spawn_choice = choice(['sunnyside_up', 'egg', 'egg', 'egg', 'coin', 'eggsaucer'])
+                spawn_choice = choice(['sunnyside_up', 'egg', 'egg', 'egg', 'coin', 'eggsaucer', 'star'])
                 if spawn_choice == 'sunnyside_up':
                     obstacle_rect_list.append(sunnyside_up_list[0].get_rect(midbottom=(randint(900, 1100), 210)))
                 elif spawn_choice == 'eggsaucer':
                     obstacle_rect_list.append(eggsaucer_list[0].get_rect(midbottom=(randint(900, 1100), 120)))
                 elif spawn_choice == 'coin':
                     obstacle_rect_list.append(coin_surf.get_rect(midbottom=(randint(900, 1100), 150)))
+                elif spawn_choice == 'star':
+                    obstacle_rect_list.append(star_surf.get_rect(midbottom=(randint(900, 1100), 180)))
                 else:
                     obstacle_rect_list.append(egg_list[0].get_rect(midbottom=(randint(900, 1100), GROUND_Y)))
 
@@ -250,10 +279,13 @@ while running:
                 egg_clear_stocked_until = 0
                 slow_mo_until = 0
                 triple_jump_until = 0
+                explosion_end_time = 0  # Clear blast visual trackers
                 
                 # Reset internal tracker systems
                 start_time = pygame.time.get_ticks()  
                 score = 0  
+                bonus_score = 0
+                coins_collected = 0
                 jump_count = 0  
                 player_index = 0.0  
                 egg_index = 0.0  
@@ -280,6 +312,11 @@ while running:
         screen.blit(SKY_SURF, (0, 0))
         screen.blit(GROUND_SURF, (0, GROUND_Y))
         score = display_score()
+
+        # Render coins section directly below the score
+        coins_hud_surf = small_font.render(f"Coins collected: {coins_collected}", False, "Black")
+        coins_hud_rect = coins_hud_surf.get_rect(center=(400, 95))
+        screen.blit(coins_hud_surf, coins_hud_rect)
 
         # Render lives section of screen
         lives_surf = game_font.render(f"LIVES: {lives}", False, "Red")
@@ -315,12 +352,16 @@ while running:
             elif pu['type'] == 'slow_mo': color, label = "Cyan", "S"
             elif pu['type'] == 'triple_jump': color, label = "Orange", "T"
             
-            pygame.draw.circle(screen, color, pu['rect'].center, 15)
-            lbl_surf = small_font.render(label, True, "White")
-            lbl_rect = lbl_surf.get_rect(center=pu['rect'].center)
-            screen.blit(lbl_surf, lbl_rect)
+            if pu['type'] == 'heart':
+                potion_scaled = pygame.transform.scale(extra_life_potion_surf, (100, 100))
+                screen.blit(potion_scaled, pu['rect'])
+            else:
+                pygame.draw.circle(screen, color, pu['rect'].center, 15)
+                lbl_surf = small_font.render(label, True, "White")
+                lbl_rect = lbl_surf.get_rect(center=pu['rect'].center)
+                screen.blit(lbl_surf, lbl_rect)
 
-        # Apply gravity mechanics and handle anti-gravity beam adjustments
+        # Apply gravity mechanics and anti-gravity beam adjustments
         player_under_beam = False
         for obs in obstacle_rect_list:
             if obs.bottom == 120:
@@ -367,7 +408,7 @@ while running:
         is_playing = collisions(player_rect, obstacle_rect_list)
 
         # Render Active Powerup Timers on Left side of screen
-        hud_y = 80
+        hud_y = 120
         if current_ticks < invincible_timer and (invincible_timer - current_ticks) > INVINCIBLE_DURATION:
             rem = (invincible_timer - current_ticks) // 1000
             ui_surf = small_font.render(f"INVINCIBLE: {rem}s", True, "Blue")
@@ -389,20 +430,33 @@ while running:
             screen.blit(ui_surf, (20, hud_y))
             hud_y += 25
 
+        # Render full screen egg bomb explosion if active
+        if current_ticks < explosion_end_time:
+            explosion_scaled = pygame.transform.scale(egg_bomb_explosion_surf, (800, 400))
+            screen.blit(explosion_scaled, (0, 0))  # Overlay explosion graphics layer
+
     # Game Over screen assets
     else:
         screen.fill("black")
 
         game_over_surf = game_font.render("GAME OVER!", False, "Red")
-        game_over_rect = game_over_surf.get_rect(center=(400, 100))
+        game_over_rect = game_over_surf.get_rect(center=(400, 60))
         
+        current_score_surf = small_font.render(f"SCORE ACHIEVED: {score}", False, "Light Blue")
+        current_score_rect = current_score_surf.get_rect(center=(400, 130))
+
+        current_coins_surf = small_font.render(f"COINS COLLECTED: {coins_collected}", False, "Yellow")
+        current_coins_rect = current_coins_surf.get_rect(center=(400, 175))
+
         high_score_surf = game_font.render(f"HIGH SCORE: {high_score}", False, "White")
-        high_score_rect = high_score_surf.get_rect(center=(400, 200))
+        high_score_rect = high_score_surf.get_rect(center=(400, 240))
         
         restart_surf = game_font.render("Press SPACE to Play Again", False, "Gray")
-        restart_rect = restart_surf.get_rect(center=(400, 300))
+        restart_rect = restart_surf.get_rect(center=(400, 330))
 
         screen.blit(game_over_surf, game_over_rect)
+        screen.blit(current_score_surf, current_score_rect)
+        screen.blit(current_coins_surf, current_coins_rect)
         screen.blit(high_score_surf, high_score_rect)
         screen.blit(restart_surf, restart_rect)
 
