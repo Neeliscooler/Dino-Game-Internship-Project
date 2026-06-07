@@ -3,7 +3,9 @@ Dino Game in Python
 A game similar to the famous Chrome Dino Game, built using pygame-ce.
 Made by intern: @Neel Verma, no one or nothing else. 🤖
 Overall Modifications: Added lives, post-hit invincibility, double jumping, power ups (Invincibility, Triple Jump, Time Slow, Egg Bomb, and Extra Life),
-Coins, stars which increase the score, more enemies, On screen HUD(score, lives, and coin counter), and a game over screen which displays the highscore, score achieved and coins recieved this run.
+Coins, stars which increase the score, more enemies, On screen HUD(score, lives, and coin counter), and a game over screen which displays the highscore,
+score achieved and coins recieved this run, and a day and night system which changes the background based on the time of each run, audio assets (main menu, game, jump, and defeat screen),
+added heart pngs for the playerand created a max heart count of 5, added a main menu which is in progress with currently 3 options(Main game, instructions, exit),
 
 """
 
@@ -14,18 +16,21 @@ from random import randint, choice
 # Initialize Pygame
 pygame.init()
 screen = pygame.display.set_mode((800, 400))
-pygame.display.set_caption('Dino Runner')
+pygame.display.set_caption('Eggpocalypse')
 clock = pygame.time.Clock()
 running = True 
 
-# Audio assets (IN PROGRESS!)
-#bg_music = pygame.mixer.Sound('audio/music.wav')
-#bg_music.play(loops = -1)
-#jump_sound = pygame.mixer.Sound('audio/jump.mp3')
-#jump_sound.set_volume(0.5)
+# Audion assets
+bg_music = pygame.mixer.Sound('audio/game_music.mp3')
+jump_sound = pygame.mixer.Sound('audio/jump.mp3')
+jump_sound.set_volume(0.5)
+defeat_music = pygame.mixer.Sound('audio/defeat_music.mp3')  # Load defeat screen audio soundtrack asset
+main_menu_music = pygame.mixer.Sound('audio/main_menu.mp3')  # Load main menu route asset for background loop tracking
+main_menu_music.play(loops = -1)  # Initiate menu loop immediately at program startup initialization route
 
 # Game state variables
-is_playing = True  
+is_playing = False  
+game_state = 'main_menu' # Controls the active user interface route screen state
 GROUND_Y = 300  
 JUMP_GRAVITY_START_SPEED = -20  
 players_gravity_speed = 0  
@@ -48,7 +53,12 @@ triple_jump_until = 0         # Triple jump effect (15 seconds)
 explosion_end_time = 0       # Screen bomb explosion flash timestamp
 
 # Load background and font assets
-SKY_SURF = pygame.image.load("graphics/level/sky.png").convert()
+sky_day = pygame.image.load("graphics/level/day_sky.png").convert()
+sky_sunset = pygame.image.load("graphics/level/sunset_sky.png").convert()
+sky_night = pygame.image.load("graphics/level/night_sky.png").convert()
+sky_midnight = pygame.image.load("graphics/level/midnight_sky.png").convert()
+sky_list = [sky_day, sky_sunset, sky_night, sky_midnight]  # List of sky backgrounds for shifting time
+
 GROUND_SURF = pygame.image.load("graphics/level/ground.png").convert()
 game_font = pygame.font.Font(pygame.font.get_default_font(), 50)
 small_font = pygame.font.Font(pygame.font.get_default_font(), 20)  
@@ -61,6 +71,7 @@ player_walk_2 = pygame.image.load("graphics/player/player_walk_2.png").convert_a
 player_walk_list = [player_walk_1, player_walk_2]
 player_index = 0.0  
 player_jump = pygame.image.load('graphics/player/player_jump.png').convert_alpha()
+player_heart_surf = pygame.transform.scale(pygame.image.load("graphics/player/player_heart.png"), (35, 35)).convert_alpha()  # Load heart graphic asset for HUD health tracking
 
 # Load triple jump alternate player assets
 tj_walk_1 = pygame.transform.scale(pygame.image.load("graphics/player/triplejump_walk_1.png"), (100,100)).convert_alpha()
@@ -103,7 +114,7 @@ star_surf = pygame.transform.scale(pygame.image.load("graphics/collectibles/star
 
 # load power up related assets
 egg_bomb_explosion_surf = pygame.transform.scale(pygame.image.load("graphics/collectibles/egg_bomb_explosion.png"), (200,200)).convert_alpha()
-extra_life_potion_surf = pygame.image.load("graphics/collectibles/extra_life_potion.png").convert_alpha()
+extra_life_potion_surf = pygame.transform.scale(pygame.image.load("graphics/collectibles/extra_life_potion.png"), (100, GROUND_Y)).convert_alpha()
 
 obstacle_rect_list = []
 powerup_rect_list = []  
@@ -121,6 +132,12 @@ start_time = 0
 score = 0
 bonus_score = 0
 coins_collected = 0
+total_coins = 0 # Persistent tally of all coins gathered across gameplay runs
+
+# Main menu interactable screen coordinate boundaries
+play_rect = pygame.Rect(0, 0, 0, 0)
+inst_rect = pygame.Rect(0, 0, 0, 0)
+quit_rect = pygame.Rect(0, 0, 0, 0)
 
 
 # GAME FUNCTIONS
@@ -217,6 +234,89 @@ def player_animation():
         player_surf = current_jump_surf
 
 
+def draw_main_menu():
+    """Renders the menu background title screen metrics and button layout."""
+    global play_rect, inst_rect, quit_rect
+    screen.fill("black")
+    
+    # Render top left total coins and top right high score values
+    total_coins_surf = small_font.render(f"Total Coins: {total_coins}", True, "Yellow")
+    screen.blit(total_coins_surf, (20, 20))
+    
+    highest_score_surf = small_font.render(f"Highest Score: {high_score}", True, "White")
+    screen.blit(highest_score_surf, (800 - highest_score_surf.get_width() - 20, 20))
+    
+    # Game title display configuration
+    title_surf = game_font.render("Eggpocalypse", True, "Red")
+    title_rect = title_surf.get_rect(center = (400, 100))
+    screen.blit(title_surf, title_rect)
+    
+    # Generate navigation selection buttons positions tracking data labels
+    play_surf = game_font.render("Play Game", True, "Green")
+    play_rect = play_surf.get_rect(center = (400, 200))
+    screen.blit(play_surf, play_rect)
+    
+    inst_surf = game_font.render("Instructions", True, "Cyan")
+    inst_rect = inst_surf.get_rect(center = (400, 270))
+    screen.blit(inst_surf, inst_rect)
+    
+    quit_surf = game_font.render("Quit Game", True, "Orange")
+    quit_rect = quit_surf.get_rect(center = (400, 340))
+    screen.blit(quit_surf, quit_rect)
+
+
+def draw_instructions():
+    """Renders gameplay objective specifications and controller mapping guides."""
+    screen.fill("black")
+    
+    # Title display layout positioning metrics setup routine
+    inst_title_surf = game_font.render("Instructions", True, "Cyan")
+    screen.blit(inst_title_surf, inst_title_surf.get_rect(center = (400, 60)))
+    
+    # Informative textual descriptions drawing elements allocations list details
+    txt1 = small_font.render("SPACE / MOUSE CLICK - Jump (Double / Triple Jump available with powerups)", True, "White")
+    txt2 = small_font.render("W KEY - Fire Egg Bomb screen clear hazard wipe tool", True, "White")
+    txt3 = small_font.render("OBJECTIVE - Dodge breaking eggs, gather gold coins and score stars!", True, "White")
+    txt4 = small_font.render("Press M to go back to the Main Menu", True, "Yellow")
+    
+    screen.blit(txt1, txt1.get_rect(center = (400, 150)))
+    screen.blit(txt2, txt2.get_rect(center = (400, 200)))
+    screen.blit(txt3, txt3.get_rect(center = (400, 250)))
+    screen.blit(txt4, txt4.get_rect(center = (400, 330)))
+
+
+def reset_game():
+    """Resets all simulation parameters and handles standard baseline runtime allocations initialization."""
+    global is_playing, game_state, obstacle_rect_list, powerup_rect_list, egg_clear_stocked_until, slow_mo_until, triple_jump_until, explosion_end_time, start_time, score, bonus_score, coins_collected, jump_count, player_index, egg_index, eggsaucer_index, lives, invincible_timer, game_speed, difficulty_level
+    is_playing = True
+    game_state = 'playing'
+    obstacle_rect_list.clear()
+    powerup_rect_list.clear()  
+    
+    # Reset powerup limits
+    egg_clear_stocked_until = 0
+    slow_mo_until = 0
+    triple_jump_until = 0
+    explosion_end_time = 0  # Clear blast visual trackers
+    
+    # Reset internal tracker systems
+    start_time = pygame.time.get_ticks()  
+    score = 0  
+    bonus_score = 0
+    coins_collected = 0
+    jump_count = 0  
+    player_index = 0.0  
+    egg_index = 0.0  
+    eggsaucer_index = 0.0
+    lives = 3  
+    invincible_timer = 0  
+    game_speed = 5  
+    difficulty_level = 0  
+    pygame.time.set_timer(obstacle_timer, 1500)  
+    pygame.time.set_timer(powerup_timer, 40000)
+    bg_music.play(loops = -1)
+
+
 # MAIN GAME LOOP
 
 while running:
@@ -228,7 +328,23 @@ while running:
             pygame.quit()
             exit()
 
-        elif is_playing:
+        elif game_state == 'main_menu':
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if play_rect.collidepoint(event.pos):
+                    main_menu_music.stop()  # Stop menu soundtrack right before setting up playing parameters
+                    reset_game()
+                elif inst_rect.collidepoint(event.pos):
+                    game_state = 'instructions'
+                elif quit_rect.collidepoint(event.pos):
+                    running = False
+                    pygame.quit()
+                    exit()
+
+        elif game_state == 'instructions':
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_m:
+                game_state = 'main_menu'
+
+        elif game_state == 'playing':
             # Press 'W' to use screen clear bomb
             if event.type == pygame.KEYDOWN and event.key == pygame.K_w:
                 if current_ticks < egg_clear_stocked_until:
@@ -243,8 +359,8 @@ while running:
                 max_jumps = 3 if current_ticks < triple_jump_until else 2
                 if player_rect.bottom >= GROUND_Y or jump_count < max_jumps:
                     players_gravity_speed = JUMP_GRAVITY_START_SPEED
-                    #IN PROGRESS
-                    #jump_sound.play()
+                    #plays jump sound effect when jumping
+                    jump_sound.play()
                     jump_count += 1
 
             # Spawn obstacles/collectibles
@@ -268,36 +384,24 @@ while running:
                 p_rect.midbottom = (randint(900, 1100), GROUND_Y)
                 powerup_rect_list.append({'rect': p_rect, 'type': p_type})
 
-        else:
+        elif game_state == 'game_over':
             # Restart game on SPACE press
             if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
-                is_playing = True
-                obstacle_rect_list.clear()
-                powerup_rect_list.clear()  
-                
-                # Reset powerup limits
-                egg_clear_stocked_until = 0
-                slow_mo_until = 0
-                triple_jump_until = 0
-                explosion_end_time = 0  # Clear blast visual trackers
-                
-                # Reset internal tracker systems
-                start_time = pygame.time.get_ticks()  
-                score = 0  
-                bonus_score = 0
-                coins_collected = 0
-                jump_count = 0  
-                player_index = 0.0  
-                egg_index = 0.0  
-                eggsaucer_index = 0.0
-                lives = 3  
-                invincible_timer = 0  
-                game_speed = 5  
-                difficulty_level = 0  
-                pygame.time.set_timer(obstacle_timer, 1500)  
-                pygame.time.set_timer(powerup_timer, 40000)  
+                    defeat_music.stop()  # Turn off game over screen tracking track prior to starting new clean simulation run
+                    reset_game()
+            # Return to main menu on M key press
+            elif event.type == pygame.KEYDOWN and event.key == pygame.K_m:
+                defeat_music.stop()  # Terminate playback channel layout configurations for post run screen asset
+                main_menu_music.play(loops = -1)  # Re-initiate background music loop routing path for title screen
+                game_state = 'main_menu'
 
-    if is_playing:
+        if game_state == 'main_menu':
+            draw_main_menu()
+
+        elif game_state == 'instructions':
+            draw_instructions()
+
+    if game_state == 'playing':
         # Increase speed and spawn rates as score grows
         game_speed = 5 + (score // 10)
         new_level = score // 15
@@ -309,7 +413,8 @@ while running:
         current_speed = game_speed // 2 if current_ticks < slow_mo_until else game_speed
 
         # Render background and score
-        screen.blit(SKY_SURF, (0, 0))
+        sky_index = ((pygame.time.get_ticks() - start_time) // 50000) % len(sky_list)  # Calculate active sky index based on 50 second loop interval
+        screen.blit(sky_list[sky_index], (0, 0))
         screen.blit(GROUND_SURF, (0, GROUND_Y))
         score = display_score()
 
@@ -319,9 +424,9 @@ while running:
         screen.blit(coins_hud_surf, coins_hud_rect)
 
         # Render lives section of screen
-        lives_surf = game_font.render(f"LIVES: {lives}", False, "Red")
-        lives_rect = lives_surf.get_rect(topright=(780, 20))
-        screen.blit(lives_surf, lives_rect)
+        for i in range(lives):
+            heart_rect = player_heart_surf.get_rect(topleft=(20 + (i * 40), 20))  # Render individual heart graphic sprites horizontally along the screen boundary
+            screen.blit(player_heart_surf, heart_rect)
 
         # Move and clean up obstacles
         obstacle_rect_list = obstacle_movement(obstacle_rect_list)
@@ -395,7 +500,8 @@ while running:
                 if pu['type'] == 'invincible':
                     invincible_timer = current_ticks + 15000  # 15s Invincibility
                 elif pu['type'] == 'heart':
-                    lives += 1                               # +1 Life
+                    if lives < 5:  # Cap health pool up to 5 hearts maximum
+                        lives += 1                               # +1 Life
                 elif pu['type'] == 'egg_clear':
                     egg_clear_stocked_until = current_ticks + 38000  # Held for 38s max
                 elif pu['type'] == 'slow_mo':
@@ -406,6 +512,13 @@ while running:
 
         # Check hazard hit collisions
         is_playing = collisions(player_rect, obstacle_rect_list)
+
+        # Handle runtime termination state logic route modifications
+        if not is_playing:
+            game_state = 'game_over'
+            total_coins += coins_collected
+            bg_music.stop()
+            defeat_music.play(loops = -1)  # Fire defeat loop system right when transitions shift to game over overlay assets
 
         # Render Active Powerup Timers on Left side of screen
         hud_y = 120
@@ -432,11 +545,11 @@ while running:
 
         # Render full screen egg bomb explosion if active
         if current_ticks < explosion_end_time:
-            explosion_scaled = pygame.transform.scale(egg_bomb_explosion_surf, (800, 400))
+            explosion_scaled = pygame.transform.scale(egg_bomb_explosion_surf, (1000, 800))
             screen.blit(explosion_scaled, (0, 0))  # Overlay explosion graphics layer
 
     # Game Over screen assets
-    else:
+    elif game_state == 'game_over':
         screen.fill("black")
 
         game_over_surf = game_font.render("GAME OVER!", False, "Red")
@@ -451,14 +564,18 @@ while running:
         high_score_surf = game_font.render(f"HIGH SCORE: {high_score}", False, "White")
         high_score_rect = high_score_surf.get_rect(center=(400, 240))
         
-        restart_surf = game_font.render("Press SPACE to Play Again", False, "Gray")
-        restart_rect = restart_surf.get_rect(center=(400, 330))
+        restart_surf = small_font.render("Press SPACE to Play Again", False, "Gray")
+        restart_rect = restart_surf.get_rect(center=(400, 310))
+
+        menu_surf = small_font.render("Press M to Return to Main Menu", False, "Gray")
+        menu_rect = menu_surf.get_rect(center=(400, 350))
 
         screen.blit(game_over_surf, game_over_rect)
         screen.blit(current_score_surf, current_score_rect)
         screen.blit(current_coins_surf, current_coins_rect)
         screen.blit(high_score_surf, high_score_rect)
         screen.blit(restart_surf, restart_rect)
+        screen.blit(menu_surf, menu_rect)
 
     pygame.display.update()
     clock.tick(60)  
