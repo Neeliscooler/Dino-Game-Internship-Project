@@ -5,8 +5,8 @@ Made by intern: @Neel Verma, no one or nothing else. 🤖
 Overall Modifications: Added lives, post-hit invincibility, double jumping, power ups (Invincibility, Triple Jump, Time Slow, Egg Bomb, and Extra Life),
 Coins, stars which increase the score, more enemies, On screen HUD(score, lives, and coin counter), and a game over screen which displays the highscore,
 score achieved and coins recieved this run, and a day and night system which changes the background based on the time of each run, audio assets (main menu, game, jump, and defeat screen),
-added heart pngs for the playerand created a max heart count of 5, added a main menu which is in progress with currently 3 options(Main game, instructions, exit),
-
+added heart pngs for the player and created a max heart count of 5, added a main menu which is in progress with currently 3 options(Main game, instructions, exit),
+added a boss battle with the egg king who spawns 2 enemies at once and can be defeated when hit by an egg bomb twice, the egg king appears again in (100+20*number of egg king defeats) with 1 more hp per egg king defeat
 """
 
 import pygame
@@ -20,17 +20,17 @@ pygame.display.set_caption('Eggpocalypse')
 clock = pygame.time.Clock()
 running = True 
 
-# Audion assets
+# Audio assets
 bg_music = pygame.mixer.Sound('audio/game_music.mp3')
 jump_sound = pygame.mixer.Sound('audio/jump.mp3')
 jump_sound.set_volume(0.5)
-defeat_music = pygame.mixer.Sound('audio/defeat_music.mp3')  # Load defeat screen audio soundtrack asset
-main_menu_music = pygame.mixer.Sound('audio/main_menu.mp3')  # Load main menu route asset for background loop tracking
-main_menu_music.play(loops = -1)  # Initiate menu loop immediately at program startup initialization route
+defeat_music = pygame.mixer.Sound('audio/defeat_music.mp3')  # Game over music
+main_menu_music = pygame.mixer.Sound('audio/main_menu.mp3')  # Main menu background music
+main_menu_music.play(loops = -1)  # Play menu music on loop immediately
 
 # Game state variables
 is_playing = False  
-game_state = 'main_menu' # Controls the active user interface route screen state
+game_state = 'main_menu' # Tracks the current screen (menu, instructions, playing, game over)
 GROUND_Y = 300  
 JUMP_GRAVITY_START_SPEED = -20  
 players_gravity_speed = 0  
@@ -47,17 +47,17 @@ invincible_timer = 0
 INVINCIBLE_DURATION = 1500  
 
 # Power-up active timestamps
-egg_clear_stocked_until = 0  # Screen clear with 'W'
-slow_mo_until = 0            # Slow-Mo effect
-triple_jump_until = 0         # Triple jump effect (15 seconds)
-explosion_end_time = 0       # Screen bomb explosion flash timestamp
+egg_clear_stocked_until = 0  # Bomb power-up (clears the screen with 'W')
+slow_mo_until = 0            # Slow motion power-up
+triple_jump_until = 0         # Triple jump power-up
+explosion_end_time = 0       # When the screen flash explosion effect ends
 
 # Load background and font assets
 sky_day = pygame.image.load("graphics/level/day_sky.png").convert()
 sky_sunset = pygame.image.load("graphics/level/sunset_sky.png").convert()
 sky_night = pygame.image.load("graphics/level/night_sky.png").convert()
 sky_midnight = pygame.image.load("graphics/level/midnight_sky.png").convert()
-sky_list = [sky_day, sky_sunset, sky_night, sky_midnight]  # List of sky backgrounds for shifting time
+sky_list = [sky_day, sky_sunset, sky_night, sky_midnight]  # List of sky backgrounds to change time of day
 
 GROUND_SURF = pygame.image.load("graphics/level/ground.png").convert()
 game_font = pygame.font.Font(pygame.font.get_default_font(), 50)
@@ -71,7 +71,7 @@ player_walk_2 = pygame.image.load("graphics/player/player_walk_2.png").convert_a
 player_walk_list = [player_walk_1, player_walk_2]
 player_index = 0.0  
 player_jump = pygame.image.load('graphics/player/player_jump.png').convert_alpha()
-player_heart_surf = pygame.transform.scale(pygame.image.load("graphics/player/player_heart.png"), (35, 35)).convert_alpha()  # Load heart graphic asset for HUD health tracking
+player_heart_surf = pygame.transform.scale(pygame.image.load("graphics/player/player_heart.png"), (35, 35)).convert_alpha()  # Heart image for the health bar
 
 # Load triple jump alternate player assets
 tj_walk_1 = pygame.transform.scale(pygame.image.load("graphics/player/triplejump_walk_1.png"), (100,100)).convert_alpha()
@@ -82,7 +82,7 @@ tj_jump =  pygame.transform.scale(pygame.image.load("graphics/player/triplejump_
 player_surf = player_walk_list[int(player_index)]
 player_rect = player_surf.get_rect(bottomleft=(25, GROUND_Y))
 
-# Load egg assets
+# Load basic egg assets
 egg_1 = pygame.image.load("graphics/egg-enemies/egg_1.png").convert_alpha()
 egg_2 = pygame.image.load("graphics/egg-enemies/egg_2.png").convert_alpha()
 egg_list = [egg_1, egg_2]
@@ -91,13 +91,20 @@ egg_index = 0.0
 egg_surf = egg_list[int(egg_index)]
 egg_rect = egg_surf.get_rect(bottomleft=(800, GROUND_Y))
 
+# Load egg knight asset frame walk lists
+egg_knight_1 = pygame.transform.scale(pygame.image.load("graphics/egg-enemies/egg_knight_1.png"),(100, 100)).convert_alpha()
+egg_knight_2 = pygame.transform.scale(pygame.image.load("graphics/egg-enemies/egg_knight_2.png"),(100, 100)).convert_alpha()
+egg_knight_list = [egg_knight_1, egg_knight_2]
+egg_knight_index = 0.0
+egg_knight_surf = egg_knight_list[int(egg_knight_index)]
+
 # Load sunny side up assets
 resize_sunnyside_up_1 = pygame.transform.scale(pygame.image.load("graphics/egg-enemies/sunnyside_up_1.png"), (100, 100)).convert_alpha()
 resize_sunnyside_up_2 = pygame.transform.scale(pygame.image.load("graphics/egg-enemies/sunnyside_up_2.png"), (100, 100)).convert_alpha()
 
 sunnyside_up_list = [resize_sunnyside_up_1, resize_sunnyside_up_2]
 sunnyside_up_index = 0.0
-sunnyside_up_surf = sunnyside_up_list[int(sunnyside_up_index)]  # Fixed: Initialized early to prevent NameError crash
+sunnyside_up_surf = sunnyside_up_list[int(sunnyside_up_index)]  
 
 # Load eggsaucer assets
 eggsaucer_1 = pygame.transform.scale(pygame.image.load("graphics/egg-enemies/eggsaucer_1.png"), (100, 60)).convert_alpha()
@@ -105,6 +112,12 @@ eggsaucer_2 = pygame.transform.scale(pygame.image.load("graphics/egg-enemies/egg
 eggsaucer_list = [eggsaucer_1, eggsaucer_2]
 eggsaucer_index = 0.0
 eggsaucer_surf = eggsaucer_list[int(eggsaucer_index)]
+
+# Load egg king boss assets
+egg_king_1 = pygame.transform.scale(pygame.image.load("graphics/egg-enemies/egg_king_1.png"), (120,150)).convert_alpha()
+egg_king_2 = pygame.transform.scale(pygame.image.load("graphics/egg-enemies/egg_king_2.png"),(120,150)).convert_alpha()
+egg_king_list = [egg_king_1, egg_king_2]
+egg_king_index = 0.0
 
 # Load coin asset
 coin_surf = pygame.image.load("graphics/collectibles/coin.png").convert_alpha()
@@ -123,18 +136,22 @@ powerup_rect_list = []
 obstacle_timer = pygame.USEREVENT + 1
 pygame.time.set_timer(obstacle_timer, 1500)
 
-powerup_timer = pygame.USEREVENT + 2
-pygame.time.set_timer(powerup_timer, 40000)  # Spawns every 40 seconds
-
 # Score tracking
 high_score = 0
 start_time = 0
 score = 0
 bonus_score = 0
 coins_collected = 0
-total_coins = 0 # Persistent tally of all coins gathered across gameplay runs
+total_coins = 0 # Total coins collected across all games
 
-# Main menu interactable screen coordinate boundaries
+# Boss progression tracking
+egg_king_active = False
+egg_king_hp = 0
+egg_king_defeated_count = 0
+egg_king_next_spawn_score = 100
+last_powerup_score = 0
+
+# Clickable button areas for the main menu
 play_rect = pygame.Rect(0, 0, 0, 0)
 inst_rect = pygame.Rect(0, 0, 0, 0)
 quit_rect = pygame.Rect(0, 0, 0, 0)
@@ -143,7 +160,7 @@ quit_rect = pygame.Rect(0, 0, 0, 0)
 # GAME FUNCTIONS
 
 def display_score():
-    """Calculates the runtime score based on game ticks and draws it to the screen HUD."""
+    """Calculates the current score based on time and draws it to the screen HUD."""
     global score, score_surf, score_rect
     current_time = pygame.time.get_ticks() - start_time
     score = (current_time // 1000) + bonus_score  
@@ -157,22 +174,49 @@ def display_score():
     return score
 
 
+def spawn_obstacle(spawn_choice, x_pos):
+    """Creates an obstacle or collectible and adds its hitboxes to the tracking list."""
+    if spawn_choice == 'sunnyside_up':
+        rect = sunnyside_up_list[0].get_rect(midbottom=(x_pos, 210))
+        obstacle_rect_list.append({'rect': rect, 'type': 'sunnyside_up'})
+    elif spawn_choice == 'eggsaucer':
+        rect = eggsaucer_list[0].get_rect(midbottom=(x_pos, 120))
+        obstacle_rect_list.append({'rect': rect, 'type': 'eggsaucer'})
+    elif spawn_choice == 'coin':
+        rect = coin_surf.get_rect(midbottom=(x_pos, 150))
+        obstacle_rect_list.append({'rect': rect, 'type': 'coin'})
+    elif spawn_choice == 'star':
+        rect = star_surf.get_rect(midbottom=(x_pos, 180))
+        obstacle_rect_list.append({'rect': rect, 'type': 'star'})
+    elif spawn_choice == 'egg_knight':
+        rect = egg_knight_list[0].get_rect(midbottom=(x_pos, GROUND_Y))  # Set egg knight position on the ground
+        obstacle_rect_list.append({'rect': rect, 'type': 'egg_knight'})
+    else:
+        rect = egg_list[0].get_rect(midbottom=(x_pos, GROUND_Y))
+        obstacle_rect_list.append({'rect': rect, 'type': 'egg'})
+
+
 def obstacle_movement(obstacle_list):
-    """Updates coordinate position of enemies and draws them based on their spawn heights."""
+    """Moves all active obstacles to the left and draws them based on their type."""
     if obstacle_list:
         for active_obs in obstacle_list:
-            active_obs.x -= current_speed
+            active_obs['rect'].x -= current_speed
             
         for active_obs in obstacle_list:
-            if active_obs.bottom == GROUND_Y:
-                screen.blit(egg_surf, active_obs)
-            elif active_obs.bottom == 210:
-                screen.blit(sunnyside_up_surf, active_obs)
-            elif active_obs.bottom == 180:
-                screen.blit(star_surf, active_obs)  # Render star collectible
-            elif active_obs.bottom == 120:
+            obs_rect = active_obs['rect']
+            obs_type = active_obs['type']
+            
+            if obs_type == 'egg':
+                screen.blit(egg_surf, obs_rect)
+            elif obs_type == 'egg_knight':
+                screen.blit(egg_knight_surf, obs_rect)  # Draw egg knight
+            elif obs_type == 'sunnyside_up':
+                screen.blit(sunnyside_up_surf, obs_rect)
+            elif obs_type == 'star':
+                screen.blit(star_surf, obs_rect)  # Draw star item
+            elif obs_type == 'eggsaucer':
                 beam_color = "Yellow" if (pygame.time.get_ticks() // 200) % 2 == 0 else "Orange"
-                beam_rect = pygame.Rect(active_obs.left, active_obs.bottom, active_obs.width, GROUND_Y - active_obs.bottom)
+                beam_rect = pygame.Rect(obs_rect.left, obs_rect.bottom, obs_rect.width, GROUND_Y - obs_rect.bottom)
                 beam_surf = pygame.Surface((beam_rect.width, beam_rect.height), pygame.SRCALPHA)
                 if beam_color == "Yellow":
                     beam_surf.fill((255, 255, 0, 80))
@@ -180,28 +224,40 @@ def obstacle_movement(obstacle_list):
                     beam_surf.fill((255, 165, 0, 80))
                 screen.blit(beam_surf, beam_rect)
                 
-                screen.blit(eggsaucer_surf, active_obs)
-            else:
-                screen.blit(coin_surf, active_obs)
+                screen.blit(eggsaucer_surf, obs_rect)
+            elif obs_type == 'coin':
+                screen.blit(coin_surf, obs_rect)
 
-        obstacle_list = [obs for obs in obstacle_list if obs.right > 0]
+        obstacle_list = [obs for obs in obstacle_list if obs['rect'].right > 0]
         return obstacle_list
     else:
         return []
 
 
 def collisions(player, obstacles):
-    """Checks hitbox collisions between the player, coins, enemis, and filters invincibility logic."""
+    """Handles collisions between the player, items, and hazards, including invincibility math."""
     global lives, is_playing, high_score, invincible_timer, score, coins_collected, bonus_score
     if obstacles:
-        for egg_rect in obstacles[:]:
-            if egg_rect.colliderect(player):
-                if egg_rect.bottom == 180:
+        for active_obs in obstacles[:]:
+            obs_rect = active_obs['rect']
+            obs_type = active_obs['type']
+            if obs_rect.colliderect(player):
+                if obs_type == 'star':
                     bonus_score += 1
-                    obstacles.remove(egg_rect)
-                elif egg_rect.bottom == 150:
+                    obstacles.remove(active_obs)
+                elif obs_type == 'coin':
                     coins_collected += 1
-                    obstacles.remove(egg_rect)
+                    obstacles.remove(active_obs)
+                elif obs_type == 'egg_knight':
+                    lives -= 1
+                    if lives <= 0:
+                        is_playing = False
+                        if score > high_score:
+                            high_score = score
+                    else:
+                        invincible_timer = current_ticks + INVINCIBLE_DURATION
+                        obstacles.remove(active_obs)
+                        break
                 else:
                     if current_ticks >= invincible_timer:
                         lives -= 1
@@ -209,19 +265,19 @@ def collisions(player, obstacles):
                             is_playing = False
                             if score > high_score:
                                 high_score = score
-                        else:
-                            invincible_timer = current_ticks + INVINCIBLE_DURATION
-                            obstacles.remove(egg_rect)
-                            break
+                    else:
+                        invincible_timer = current_ticks + INVINCIBLE_DURATION
+                        obstacles.remove(active_obs)
+                        break
         return is_playing
     return True
 
 
 def player_animation():
-    """Swaps walking frames based on ground state or overrides with the jump surface asset."""
+    """Swaps animation frames based on running or jumping status."""
     global player_index, player_surf
     
-    # Determine the correct sheet depending on triple jump status
+    # Use different player textures if the triple jump power-up is active
     current_walk_list = tj_walk_list if current_ticks < triple_jump_until else player_walk_list
     current_jump_surf = tj_jump if current_ticks < triple_jump_until else player_jump
 
@@ -235,23 +291,23 @@ def player_animation():
 
 
 def draw_main_menu():
-    """Renders the menu background title screen metrics and button layout."""
+    """Draws the main menu background, title, and buttons."""
     global play_rect, inst_rect, quit_rect
     screen.fill("black")
     
-    # Render top left total coins and top right high score values
+    # Show total coins and current high score
     total_coins_surf = small_font.render(f"Total Coins: {total_coins}", True, "Yellow")
     screen.blit(total_coins_surf, (20, 20))
     
     highest_score_surf = small_font.render(f"Highest Score: {high_score}", True, "White")
     screen.blit(highest_score_surf, (800 - highest_score_surf.get_width() - 20, 20))
     
-    # Game title display configuration
+    # Game title setup
     title_surf = game_font.render("Eggpocalypse", True, "Red")
     title_rect = title_surf.get_rect(center = (400, 100))
     screen.blit(title_surf, title_rect)
     
-    # Generate navigation selection buttons positions tracking data labels
+    # Show interactive text buttons
     play_surf = game_font.render("Play Game", True, "Green")
     play_rect = play_surf.get_rect(center = (400, 200))
     screen.blit(play_surf, play_rect)
@@ -266,14 +322,14 @@ def draw_main_menu():
 
 
 def draw_instructions():
-    """Renders gameplay objective specifications and controller mapping guides."""
+    """Draws the instructions screen text and controls."""
     screen.fill("black")
     
-    # Title display layout positioning metrics setup routine
+    # Show instructions title
     inst_title_surf = game_font.render("Instructions", True, "Cyan")
     screen.blit(inst_title_surf, inst_title_surf.get_rect(center = (400, 60)))
     
-    # Informative textual descriptions drawing elements allocations list details
+    # Text strings for objectives and key controls
     txt1 = small_font.render("SPACE / MOUSE CLICK - Jump (Double / Triple Jump available with powerups)", True, "White")
     txt2 = small_font.render("W KEY - Fire Egg Bomb screen clear hazard wipe tool", True, "White")
     txt3 = small_font.render("OBJECTIVE - Dodge breaking eggs, gather gold coins and score stars!", True, "White")
@@ -286,20 +342,21 @@ def draw_instructions():
 
 
 def reset_game():
-    """Resets all simulation parameters and handles standard baseline runtime allocations initialization."""
+    """Resets all game state variables to start a completely fresh match."""
     global is_playing, game_state, obstacle_rect_list, powerup_rect_list, egg_clear_stocked_until, slow_mo_until, triple_jump_until, explosion_end_time, start_time, score, bonus_score, coins_collected, jump_count, player_index, egg_index, eggsaucer_index, lives, invincible_timer, game_speed, difficulty_level
+    global egg_king_active, egg_king_hp, egg_king_defeated_count, egg_king_next_spawn_score, egg_king_index, last_powerup_score, egg_knight_index
     is_playing = True
     game_state = 'playing'
     obstacle_rect_list.clear()
     powerup_rect_list.clear()  
     
-    # Reset powerup limits
+    # Reset powerup timers
     egg_clear_stocked_until = 0
     slow_mo_until = 0
     triple_jump_until = 0
-    explosion_end_time = 0  # Clear blast visual trackers
+    explosion_end_time = 0  # Clear explosion visual effect timer
     
-    # Reset internal tracker systems
+    # Reset game mechanics and trackers
     start_time = pygame.time.get_ticks()  
     score = 0  
     bonus_score = 0
@@ -308,12 +365,21 @@ def reset_game():
     player_index = 0.0  
     egg_index = 0.0  
     eggsaucer_index = 0.0
+    egg_knight_index = 0.0  # Reset animation tracker for egg knight
     lives = 3  
     invincible_timer = 0  
     game_speed = 5  
     difficulty_level = 0  
+    
+    # Reset boss fight info
+    egg_king_active = False
+    egg_king_hp = 0
+    egg_king_defeated_count = 0
+    egg_king_next_spawn_score = 100
+    egg_king_index = 0.0
+    last_powerup_score = 0
+    
     pygame.time.set_timer(obstacle_timer, 1500)  
-    pygame.time.set_timer(powerup_timer, 40000)
     bg_music.play(loops = -1)
 
 
@@ -331,7 +397,7 @@ while running:
         elif game_state == 'main_menu':
             if event.type == pygame.MOUSEBUTTONDOWN:
                 if play_rect.collidepoint(event.pos):
-                    main_menu_music.stop()  # Stop menu soundtrack right before setting up playing parameters
+                    main_menu_music.stop()  # Stop menu background music before starting game
                     reset_game()
                 elif inst_rect.collidepoint(event.pos):
                     game_state = 'instructions'
@@ -348,51 +414,56 @@ while running:
             # Press 'W' to use screen clear bomb
             if event.type == pygame.KEYDOWN and event.key == pygame.K_w:
                 if current_ticks < egg_clear_stocked_until:
-                    obstacle_rect_list = [obs for obs in obstacle_rect_list if obs.bottom not in (GROUND_Y, 210, 120, 180)]
+                    obstacle_rect_list = [obs for obs in obstacle_rect_list if obs['type'] not in ('egg', 'egg_knight', 'sunnyside_up', 'eggsaucer', 'star')]
                     egg_clear_stocked_until = 0  
-                    explosion_end_time = current_ticks + 600  # Set duration timer for full screen flash
+                    explosion_end_time = current_ticks + 600  # Show explosion effect for 0.6 seconds
+                    
+                    if egg_king_active:
+                        egg_king_hp -= 1
+                        if egg_king_hp <= 0:
+                            egg_king_active = False
+                            egg_king_defeated_count += 1
+                            egg_king_next_spawn_score = score + 100 + (20 * egg_king_defeated_count)
 
             # Handle jumping (Space or Mouse Click)
             if (event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE 
                 or event.type == pygame.MOUSEBUTTONDOWN):
-                # Set jump limit based on active power-up status
+                # Set jump limits based on active powerup status
                 max_jumps = 3 if current_ticks < triple_jump_until else 2
                 if player_rect.bottom >= GROUND_Y or jump_count < max_jumps:
                     players_gravity_speed = JUMP_GRAVITY_START_SPEED
-                    #plays jump sound effect when jumping
-                    jump_sound.play()
+                    jump_sound.play()  # Play jump sound
                     jump_count += 1
 
             # Spawn obstacles/collectibles
             if event.type == obstacle_timer:
-                spawn_choice = choice(['sunnyside_up', 'egg', 'egg', 'egg', 'coin', 'eggsaucer', 'star'])
-                if spawn_choice == 'sunnyside_up':
-                    obstacle_rect_list.append(sunnyside_up_list[0].get_rect(midbottom=(randint(900, 1100), 210)))
-                elif spawn_choice == 'eggsaucer':
-                    obstacle_rect_list.append(eggsaucer_list[0].get_rect(midbottom=(randint(900, 1100), 120)))
-                elif spawn_choice == 'coin':
-                    obstacle_rect_list.append(coin_surf.get_rect(midbottom=(randint(900, 1100), 150)))
-                elif spawn_choice == 'star':
-                    obstacle_rect_list.append(star_surf.get_rect(midbottom=(randint(900, 1100), 180)))
+                if egg_king_active:
+                    egg_enemies_pool = ['egg', 'sunnyside_up', 'eggsaucer']
+                    if score >= 100:
+                        egg_enemies_pool.append('egg_knight')
+                    
+                    choice1 = choice(egg_enemies_pool)
+                    remaining_pool = [e for e in egg_enemies_pool if e != choice1]
+                    choice2 = choice(remaining_pool) if remaining_pool else choice1
+                    
+                    spawn_obstacle(choice1, randint(900, 1050))
+                    spawn_obstacle(choice2, randint(1100, 1250))
                 else:
-                    obstacle_rect_list.append(egg_list[0].get_rect(midbottom=(randint(900, 1100), GROUND_Y)))
-
-            # Spawn powerups
-            if event.type == powerup_timer:
-                p_type = choice(['invincible', 'heart', 'egg_clear', 'slow_mo', 'triple_jump'])
-                p_rect = pygame.Rect(0, 0, 30, 30)
-                p_rect.midbottom = (randint(900, 1100), GROUND_Y)
-                powerup_rect_list.append({'rect': p_rect, 'type': p_type})
+                    spawn_choices = ['sunnyside_up', 'egg', 'egg', 'egg', 'coin', 'eggsaucer', 'star']
+                    if score >= 100:
+                        spawn_choices.append('egg_knight')
+                    spawn_choice = choice(spawn_choices)
+                    spawn_obstacle(spawn_choice, randint(900, 1100))
 
         elif game_state == 'game_over':
             # Restart game on SPACE press
             if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
-                    defeat_music.stop()  # Turn off game over screen tracking track prior to starting new clean simulation run
+                    defeat_music.stop()  # Stop game over music
                     reset_game()
             # Return to main menu on M key press
             elif event.type == pygame.KEYDOWN and event.key == pygame.K_m:
-                defeat_music.stop()  # Terminate playback channel layout configurations for post run screen asset
-                main_menu_music.play(loops = -1)  # Re-initiate background music loop routing path for title screen
+                defeat_music.stop()  # Stop game over music
+                main_menu_music.play(loops = -1)  # Loop main menu music
                 game_state = 'main_menu'
 
         if game_state == 'main_menu':
@@ -413,19 +484,32 @@ while running:
         current_speed = game_speed // 2 if current_ticks < slow_mo_until else game_speed
 
         # Render background and score
-        sky_index = ((pygame.time.get_ticks() - start_time) // 50000) % len(sky_list)  # Calculate active sky index based on 50 second loop interval
+        sky_index = ((pygame.time.get_ticks() - start_time) // 50000) % len(sky_list)  # Change sky background color every 50 seconds
         screen.blit(sky_list[sky_index], (0, 0))
         screen.blit(GROUND_SURF, (0, GROUND_Y))
         score = display_score()
+
+        # Check if the Egg King boss should spawn
+        if score >= egg_king_next_spawn_score and not egg_king_active:
+            egg_king_active = True
+            egg_king_hp = 2 + (1 * egg_king_defeated_count)
+
+        # Spawn a power-up every 40 score points
+        if score >= last_powerup_score + 40:
+            last_powerup_score = (score // 40) * 40
+            p_type = 'egg_clear' if egg_king_active else choice(['invincible', 'heart', 'egg_clear', 'slow_mo', 'triple_jump'])
+            p_rect = pygame.Rect(0, 0, 30, 30)
+            p_rect.midbottom = (randint(900, 1100), GROUND_Y)
+            powerup_rect_list.append({'rect': p_rect, 'type': p_type})
 
         # Render coins section directly below the score
         coins_hud_surf = small_font.render(f"Coins collected: {coins_collected}", False, "Black")
         coins_hud_rect = coins_hud_surf.get_rect(center=(400, 95))
         screen.blit(coins_hud_surf, coins_hud_rect)
 
-        # Render lives section of screen
+        # Render lives icons on screen
         for i in range(lives):
-            heart_rect = player_heart_surf.get_rect(topleft=(20 + (i * 40), 20))  # Render individual heart graphic sprites horizontally along the screen boundary
+            heart_rect = player_heart_surf.get_rect(topleft=(20 + (i * 40), 20))  # Draw player hearts horizontally
             screen.blit(player_heart_surf, heart_rect)
 
         # Move and clean up obstacles
@@ -437,10 +521,22 @@ while running:
         powerup_rect_list = [pu for pu in powerup_rect_list if pu['rect'].right > 0]
 
         # Handle sprite animations
-        egg_index += 0.2  
+        egg_index += 0.2 
         if egg_index >= len(egg_list): egg_index = 0
         egg_surf = egg_list[int(egg_index)]
         
+        egg_knight_index += 0.15  # Animate egg knight
+        if egg_knight_index >= len(egg_knight_list): egg_knight_index = 0
+        egg_knight_surf = egg_knight_list[int(egg_knight_index)]
+
+        # Draw and animate the floating boss if active
+        if egg_king_active:
+            egg_king_index += 0.05
+            if egg_king_index >= len(egg_king_list): egg_king_index = 0
+            egg_king_surf = egg_king_list[int(egg_king_index)]
+            egg_king_rect = egg_king_surf.get_rect(center=(680, 150))
+            screen.blit(egg_king_surf, egg_king_rect)
+
         sunnyside_up_index += 0.05
         if sunnyside_up_index >= len(sunnyside_up_list): sunnyside_up_index = 0
         sunnyside_up_surf = sunnyside_up_list[int(sunnyside_up_index)]
@@ -469,8 +565,9 @@ while running:
         # Apply gravity mechanics and anti-gravity beam adjustments
         player_under_beam = False
         for obs in obstacle_rect_list:
-            if obs.bottom == 120:
-                if player_rect.right > obs.left and player_rect.left < obs.right:
+            if obs['type'] == 'eggsaucer':
+                obs_rect = obs['rect']
+                if player_rect.right > obs_rect.left and player_rect.left < obs_rect.right:
                     player_under_beam = True
                     break
 
@@ -483,7 +580,7 @@ while running:
         
         if player_rect.bottom >= GROUND_Y:
             player_rect.bottom = GROUND_Y
-            jump_count = 0  
+            jump_count = 0 
         
         player_animation()
             
@@ -500,8 +597,8 @@ while running:
                 if pu['type'] == 'invincible':
                     invincible_timer = current_ticks + 15000  # 15s Invincibility
                 elif pu['type'] == 'heart':
-                    if lives < 5:  # Cap health pool up to 5 hearts maximum
-                        lives += 1                               # +1 Life
+                    if lives < 5:  # Max capacity capped at 5 hearts
+                        lives += 1                               # Add 1 life
                 elif pu['type'] == 'egg_clear':
                     egg_clear_stocked_until = current_ticks + 38000  # Held for 38s max
                 elif pu['type'] == 'slow_mo':
@@ -513,12 +610,12 @@ while running:
         # Check hazard hit collisions
         is_playing = collisions(player_rect, obstacle_rect_list)
 
-        # Handle runtime termination state logic route modifications
+        # Trigger game over mechanics if player ran out of lives
         if not is_playing:
             game_state = 'game_over'
             total_coins += coins_collected
             bg_music.stop()
-            defeat_music.play(loops = -1)  # Fire defeat loop system right when transitions shift to game over overlay assets
+            defeat_music.play(loops = -1)  # Play game over music on loop
 
         # Render Active Powerup Timers on Left side of screen
         hud_y = 120
@@ -546,7 +643,7 @@ while running:
         # Render full screen egg bomb explosion if active
         if current_ticks < explosion_end_time:
             explosion_scaled = pygame.transform.scale(egg_bomb_explosion_surf, (1000, 800))
-            screen.blit(explosion_scaled, (0, 0))  # Overlay explosion graphics layer
+            screen.blit(explosion_scaled, (0, 0))  # Draw explosion over the whole screen
 
     # Game Over screen assets
     elif game_state == 'game_over':
