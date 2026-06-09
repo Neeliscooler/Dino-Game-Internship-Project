@@ -249,14 +249,18 @@ def collisions(player, obstacles):
                     coins_collected += 1
                     obstacles.remove(active_obs)
                 elif obs_type == 'egg_knight':
-                    lives -= 1
-                    if lives <= 0:
-                        is_playing = False
-                        if score > high_score:
-                            high_score = score
+                    if current_ticks >= invincible_timer:
+                        lives -= 1
+                        if lives <= 0:
+                            is_playing = False
+                            if score > high_score:
+                                high_score = score
+                        else:
+                            invincible_timer = current_ticks + INVINCIBLE_DURATION  # Activate post-hit invincibility
+                            obstacles.remove(active_obs)  # Remove obstacle after hit
+                            break
                     else:
-                        invincible_timer = current_ticks + INVINCIBLE_DURATION
-                        obstacles.remove(active_obs)
+                        obstacles.remove(active_obs)  # Clear obstacle if player is already invincible
                         break
                 else:
                     if current_ticks >= invincible_timer:
@@ -265,9 +269,12 @@ def collisions(player, obstacles):
                             is_playing = False
                             if score > high_score:
                                 high_score = score
+                        else:
+                            invincible_timer = current_ticks + INVINCIBLE_DURATION  # Activate post-hit invincibility
+                            obstacles.remove(active_obs)  # Remove obstacle after hit
+                            break
                     else:
-                        invincible_timer = current_ticks + INVINCIBLE_DURATION
-                        obstacles.remove(active_obs)
+                        obstacles.remove(active_obs)  # Clear obstacle if player is already invincible
                         break
         return is_playing
     return True
@@ -525,6 +532,7 @@ while running:
         if egg_index >= len(egg_list): egg_index = 0
         egg_surf = egg_list[int(egg_index)]
         
+        # Handle egg knight animation status tracker
         egg_knight_index += 0.15  # Animate egg knight
         if egg_knight_index >= len(egg_knight_list): egg_knight_index = 0
         egg_knight_surf = egg_knight_list[int(egg_knight_index)]
@@ -600,7 +608,7 @@ while running:
                     if lives < 5:  # Max capacity capped at 5 hearts
                         lives += 1                               # Add 1 life
                 elif pu['type'] == 'egg_clear':
-                    egg_clear_stocked_until = current_ticks + 38000  # Held for 38s max
+                    egg_clear_stocked_until = current_ticks + 28000  # Held for 28s max
                 elif pu['type'] == 'slow_mo':
                     slow_mo_until = current_ticks + 10000           # 10s Slow-Mo
                 elif pu['type'] == 'triple_jump':
@@ -643,7 +651,14 @@ while running:
         # Render full screen egg bomb explosion if active
         if current_ticks < explosion_end_time:
             explosion_scaled = pygame.transform.scale(egg_bomb_explosion_surf, (1000, 800))
-            screen.blit(explosion_scaled, (0, 0))  # Draw explosion over the whole screen
+    
+            # Get the display surface
+            screen_rect = screen.get_rect()
+            explosion_rect = explosion_scaled.get_rect(center=screen_rect.center)
+    
+            # Blit using the centered rectangle
+            screen.blit(explosion_scaled, explosion_rect) 
+
 
     # Game Over screen assets
     elif game_state == 'game_over':
