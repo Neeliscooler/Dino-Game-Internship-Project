@@ -10,7 +10,6 @@ added a boss battle with the egg king who spawns 2 enemies at once and can be de
 """
 
 import pygame
-from sys import exit
 from random import randint, choice
 
 # Initialize Pygame
@@ -123,7 +122,7 @@ egg_king_index = 0.0
 coin_surf = pygame.image.load("graphics/collectibles/coin.png").convert_alpha()
 
 # Load star asset
-star_surf = pygame.transform.scale(pygame.image.load("graphics/collectibles/star.png"), (70, 70)).convert_alpha()
+star_surf = pygame.transform.scale(pygame.image.load("graphics/collectibles/star_1.png"), (70, 70)).convert_alpha()
 
 # load power up related assets
 egg_bomb_explosion_surf = pygame.transform.scale(pygame.image.load("graphics/collectibles/egg_bomb_explosion.png"), (200,200)).convert_alpha()
@@ -398,8 +397,6 @@ while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
-            pygame.quit()
-            exit()
 
         elif game_state == 'main_menu':
             if event.type == pygame.MOUSEBUTTONDOWN:
@@ -410,8 +407,6 @@ while running:
                     game_state = 'instructions'
                 elif quit_rect.collidepoint(event.pos):
                     running = False
-                    pygame.quit()
-                    exit()
 
         elif game_state == 'instructions':
             if event.type == pygame.KEYDOWN and event.key == pygame.K_m:
@@ -650,7 +645,7 @@ while running:
 
         # Render full screen egg bomb explosion if active
         if current_ticks < explosion_end_time:
-            explosion_scaled = pygame.transform.scale(egg_bomb_explosion_surf, (1000, 800))
+            explosion_scaled = pygame.transform.scale(egg_bomb_explosion_surf, (800, 800))
     
             # Get the display surface
             screen_rect = screen.get_rect()
