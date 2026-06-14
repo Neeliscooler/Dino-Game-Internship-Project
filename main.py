@@ -7,9 +7,10 @@ Stars which increase the score, more enemies, On screen HUD(score, lives, and st
 score achieved and stars recieved this run, and a day and night system which changes the background based on the time of each run (day, sunset, night, midnight, sunset (which is the same as sunrise), and back today),
 audio assets (main menu, game, jump, and defeat screen), added heart pngs for the player and created a max heart count of 5, added a main menu with 3 options (Main game, instructions, exit),
 added a boss battle with the egg king who spawns 1 additional enemy at a time and can be defeated when hit by an egg bomb twice, the egg king appears again in (100+20*number of egg king defeats) with 1 more hp per egg king defeat,
-added a simple pause menu which is activated with the key P, egg splatters on collision and egg bomb clear, a deviled egg night enemy that deals 2 total damage,
+added a simple pause menu which is activated with the key P or a clickable button on screen, egg splatters on collision and egg bomb clear, a deviled egg night enemy that deals 2 total damage,
 score doubler and king potion now boost score gained per second instead of multiplying total score, king potion cant spawn normally and is guaranteed to spawn on egg king defeat,
-egg king HP is also shown as hearts on the right side of the screen, 
+egg king HP is also shown as hearts on the right side of the screen, time slow also reduces enemy spawn rate during its duration,
+king potion gives the player a special sprite while active
 """
 
 import pygame
@@ -70,6 +71,9 @@ current_sky_index = 0
 # Tracks when the pause started so start_time can be shifted on resume to keep score accurate
 pause_start_time = 0
 
+# Tracks the last interval passed to set_timer so we only call it when something changes
+current_spawn_interval = 1500
+
 # Load background and font assets
 sky_day = pygame.image.load("graphics/level/day_sky.png").convert()
 sky_sunset = pygame.image.load("graphics/level/sunset_sky.png").convert()
@@ -85,7 +89,7 @@ score_surf = game_font.render("SCORE?", False, "Black")
 score_rect = score_surf.get_rect(center=(400, 50))
 
 # Load the title image for the main menu
-eggpocalypse_title_surf = pygame.image.load("graphics/HUD/eggpocalypse_title.png").convert_alpha()
+eggpocalypse_title_surf = pygame.transform.scale(pygame.image.load("graphics/HUD/eggpocalypse_title.png"), (300, 300)).convert_alpha()
 
 # Load player assets
 player_walk_1 = pygame.image.load("graphics/player/player_walk_1.png").convert_alpha()
@@ -100,6 +104,12 @@ tj_walk_1 = pygame.image.load("graphics/player/triplejump_walk_1.png").convert_a
 tj_walk_2 = pygame.image.load("graphics/player/triplejump_walk_2.png").convert_alpha()
 tj_walk_list = [tj_walk_1, tj_walk_2]
 tj_jump = pygame.image.load("graphics/player/triplejump_jump.png").convert_alpha()
+
+# Load king potion player sprites - used while the king potion buff is active
+king_walk_1 = pygame.image.load("graphics/player/king_walk_1.png").convert_alpha()
+king_walk_2 = pygame.image.load("graphics/player/king_walk_2.png").convert_alpha()
+king_walk_list = [king_walk_1, king_walk_2]
+king_jump = pygame.image.load("graphics/player/king_jump.png").convert_alpha()
 
 player_surf = player_walk_list[int(player_index)]
 player_rect = player_surf.get_rect(bottomleft=(25, GROUND_Y))
@@ -140,10 +150,10 @@ egg_king_2 = pygame.transform.scale(pygame.image.load("graphics/egg-enemies/egg-
 egg_king_list = [egg_king_1, egg_king_2]
 egg_king_index = 0.0
 
-# Load egg king heart HUD asset - shown on the right side of the screen during a boss fight
+# Load egg king heart HUD asset shown on the right side of the screen during a boss fight
 egg_king_heart_surf = pygame.transform.scale(pygame.image.load("graphics/egg-enemies/egg-king/egg_king_heart.png"), (35, 35)).convert_alpha()
 
-# Load deviled egg assets - night-only ground enemy
+# Load deviled egg assets which only appears at night
 deviled_egg_1 = pygame.image.load("graphics/egg-enemies/deviled_egg_1.png").convert_alpha()
 deviled_egg_2 = pygame.image.load("graphics/egg-enemies/deviled_egg_2.png").convert_alpha()
 deviled_egg_list = [deviled_egg_1, deviled_egg_2]
@@ -160,9 +170,10 @@ star_index = 0.0  # Tracks current star animation frame
 egg_bomb_potion_surf = pygame.transform.scale(pygame.image.load("graphics/collectibles/egg_bomb_potion.png"), (60, 60)).convert_alpha()
 invincibility_potion_surf = pygame.transform.scale(pygame.image.load("graphics/collectibles/invincibility_potion.png"), (60, 60)).convert_alpha()
 triplejump_potion_surf = pygame.transform.scale(pygame.image.load("graphics/collectibles/triplejump_potion.png"), (60, 60)).convert_alpha()
-score_doubler_potion_surf = pygame.transform.scale(pygame.image.load("graphics/collectibles/score_doubler_potion.png"), (50, 60)).convert_alpha()  # Score doubler potion image
-king_potion_surf = pygame.transform.scale(pygame.image.load("graphics/collectibles/king_potion.png"), (60, 60)).convert_alpha()    # King potion image - only drops on egg king defeat
+score_doubler_potion_surf = pygame.transform.scale(pygame.image.load("graphics/collectibles/score_doubler_potion.png"), (60, 60)).convert_alpha()  # Score doubler potion image
+king_potion_surf = pygame.transform.scale(pygame.image.load("graphics/collectibles/king_potion.png"), (60, 60)).convert_alpha()    # King potion image which only drops on egg king defeat
 extra_life_potion_surf = pygame.transform.scale(pygame.image.load("graphics/collectibles/extra_life_potion.png"), (60, 60)).convert_alpha()
+timeslow_potion_surf = pygame.transform.scale(pygame.image.load("graphics/collectibles/timeslow_potion.png"), (60, 60)).convert_alpha()
 
 # Load egg bomb explosion effect asset
 egg_bomb_explosion_surf = pygame.transform.scale(pygame.image.load("graphics/collectibles/egg_bomb_explosion.png"), (200, 200)).convert_alpha()
@@ -174,7 +185,7 @@ deviled_splatter_surf = pygame.image.load("graphics/egg-enemies/ground_deviled_e
 
 obstacle_rect_list = []
 powerup_rect_list = []
-splatter_list = []  # Holds active splatter visuals - each entry is {'rect', 'surf', 'expire', 'type'}
+splatter_list = []  # Holds active splatter visuals - each entry is {'rect', 'surf', 'expire', 'type', 'speed'}
 
 # Custom timers for spawning
 obstacle_timer = pygame.USEREVENT + 1
@@ -200,6 +211,9 @@ play_rect = pygame.Rect(0, 0, 0, 0)
 inst_rect = pygame.Rect(0, 0, 0, 0)
 quit_rect = pygame.Rect(0, 0, 0, 0)
 
+# Clickable pause button shown in the top right during gameplay
+pause_btn_rect = pygame.Rect(760, 60, 30, 25)
+
 
 # GAME FUNCTIONS
 
@@ -211,15 +225,15 @@ def add_splatter(obs):
     if obs_type == 'deviled_egg':
         # Deviled egg gets its own splatter type so the collision system can deal damage from it
         s_rect = deviled_splatter_surf.get_rect(midbottom=obs_rect.midbottom)
-        splatter_list.append({'rect': s_rect, 'surf': deviled_splatter_surf, 'expire': pygame.time.get_ticks() + 1500, 'type': 'deviled'})
+        splatter_list.append({'rect': s_rect, 'surf': deviled_splatter_surf, 'expire': pygame.time.get_ticks() + 1500, 'type': 'deviled', 'speed': current_speed})
     elif obs_type in ('egg', 'egg_knight'):
         # Ground enemies leave behind a ground splatter
         s_rect = ground_splatter_surf.get_rect(midbottom=obs_rect.midbottom)
-        splatter_list.append({'rect': s_rect, 'surf': ground_splatter_surf, 'expire': pygame.time.get_ticks() + 1500, 'type': 'normal'})
+        splatter_list.append({'rect': s_rect, 'surf': ground_splatter_surf, 'expire': pygame.time.get_ticks() + 1500, 'type': 'normal', 'speed': current_speed})
     elif obs_type in ('sunnyside_up', 'eggsaucer'):
         # Air enemies leave behind a floating splatter at their position
         s_rect = float_splatter_surf.get_rect(midbottom=obs_rect.midbottom)
-        splatter_list.append({'rect': s_rect, 'surf': float_splatter_surf, 'expire': pygame.time.get_ticks() + 1500, 'type': 'normal'})
+        splatter_list.append({'rect': s_rect, 'surf': float_splatter_surf, 'expire': pygame.time.get_ticks() + 1500, 'type': 'normal', 'speed': current_speed})
 
 
 def display_score():
@@ -377,11 +391,12 @@ def collisions(player, obstacles):
 
 
 def draw_splatters():
-    """Draws all active splatters and removes ones that have expired. Also handles deviled egg splatter damage."""
+    """Draws all active splatters, moves them across the screen, and removes expired ones. Also handles deviled egg splatter damage."""
     global lives, is_playing, high_score, splatter_list
     still_active = []
     for sp in splatter_list:
         if current_ticks < sp['expire']:
+            sp['rect'].x -= sp['speed']  # Splatters slide left at the speed they were spawned at
             screen.blit(sp['surf'], sp['rect'])
             # Deviled egg splatters deal 1 damage ignoring invincibility when the player walks into them
             if sp['type'] == 'deviled' and sp['rect'].colliderect(player_rect):
@@ -391,8 +406,14 @@ def draw_splatters():
                     is_playing = False
                     if score > high_score:
                         high_score = score
+            # Keep moving off screen even after expiry time if still visible, otherwise drop it
+            if sp['rect'].right > 0:
+                still_active.append(sp)
+        elif sp['rect'].right > 0:
+            # Expired but not off screen yet - keep sliding, stop collision checks
+            sp['rect'].x -= sp['speed']
+            screen.blit(sp['surf'], sp['rect'])
             still_active.append(sp)
-        # Expired splatters are simply dropped from the list
     splatter_list[:] = still_active
 
 
@@ -400,9 +421,17 @@ def player_animation():
     """Swaps animation frames based on running or jumping status."""
     global player_index, player_surf
 
-    # Use different player textures if the triple jump power-up is active
-    current_walk_list = tj_walk_list if current_ticks < triple_jump_until else player_walk_list
-    current_jump_surf = tj_jump if current_ticks < triple_jump_until else player_jump
+    # King potion takes priority, then triple jump, then the default sprites
+    if current_ticks < king_potion_until:
+        current_walk_list = king_walk_list
+        current_jump_surf = king_jump
+    elif current_ticks < triple_jump_until:
+        current_walk_list = tj_walk_list
+        current_jump_surf = tj_jump
+    else:
+        # Use different player textures if the triple jump power-up is active
+        current_walk_list = player_walk_list
+        current_jump_surf = player_jump
 
     if player_rect.bottom >= GROUND_Y:
         player_index += 0.15
@@ -488,8 +517,8 @@ def draw_instructions():
     # Text strings for objectives and key controls
     txt1 = small_font.render("SPACE / MOUSE CLICK - Jump (Double / Triple Jump available with powerups)", True, "White")
     txt2 = small_font.render("W KEY - Fire Egg Bomb screen clear hazard wipe tool", True, "White")
-    txt3 = small_font.render("P KEY - Pause / Unpause the game", True, "White")
-    txt4 = small_font.render("OBJECTIVE - Dodge breaking eggs, gather stars, and grab potions!", True, "White")
+    txt3 = small_font.render("P KEY or click the [P] button top-right - Pause / Unpause the game", True, "White")
+    txt4 = small_font.render("OBJECTIVE - Dodge eggs, gather stars, and grab potions!", True, "White")
     txt5 = small_font.render("Press M to go back to the Main Menu", True, "Yellow")
 
     screen.blit(txt1, txt1.get_rect(center=(400, 130)))
@@ -509,11 +538,22 @@ def draw_pause_menu():
     paused_surf = game_font.render("PAUSED", True, "White")
     screen.blit(paused_surf, paused_surf.get_rect(center=(400, 160)))
 
-    resume_surf = small_font.render("Press P to Resume", True, "Gray")
+    resume_surf = small_font.render("Press P or click [P] to Resume", True, "Gray")
     screen.blit(resume_surf, resume_surf.get_rect(center=(400, 240)))
 
     menu_surf = small_font.render("Press M to Return to Main Menu", True, "Gray")
     screen.blit(menu_surf, menu_surf.get_rect(center=(400, 280)))
+
+    # Keep the pause button visible so the player can click it to unpause
+    draw_pause_button()
+
+
+def draw_pause_button():
+    """Draws a small clickable [P] box in the top right corner during gameplay."""
+    pygame.draw.rect(screen, (60, 60, 60), pause_btn_rect, border_radius=4)
+    pygame.draw.rect(screen, "White", pause_btn_rect, 2, border_radius=4)
+    p_label = small_font.render("P", True, "White")
+    screen.blit(p_label, p_label.get_rect(center=pause_btn_rect.center))
 
 
 def reset_game():
@@ -524,7 +564,7 @@ def reset_game():
     global egg_index, eggsaucer_index, lives, invincible_timer, game_speed, difficulty_level
     global egg_king_active, egg_king_hp, egg_king_defeated_count, egg_king_next_spawn_score
     global egg_king_index, last_powerup_score, egg_knight_index, deviled_egg_index
-    global score_doubler_until, king_potion_until, queued_potions, last_bonus_second
+    global score_doubler_until, king_potion_until, queued_potions, score_doubler_start, doubler_seconds_awarded, current_spawn_interval
 
     is_playing = True
     game_state = 'playing'
@@ -536,23 +576,24 @@ def reset_game():
     egg_clear_stocked_until = 0
     slow_mo_until = 0
     triple_jump_until = 0
-    explosion_end_time = 0    # Clear explosion visual effect timer
-    score_doubler_until = 0   # Clear score doubler timer
-    king_potion_until = 0     # Clear king potion timer
+    explosion_end_time = 0
+    score_doubler_until = 0
+    king_potion_until = 0
+    score_doubler_start = 0
+    doubler_seconds_awarded = 0
     queued_potions.clear()    # Clear any potions that were queued behind the score doubler
 
     # Reset game mechanics and trackers
     start_time = pygame.time.get_ticks()
     score = 0
     bonus_score = 0
-    last_bonus_second = 0     # Reset the per-second bonus tick tracker
     stars_collected = 0       # Reset stars collected for this run
     jump_count = 0
     player_index = 0.0
     egg_index = 0.0
     eggsaucer_index = 0.0
-    egg_knight_index = 0.0    # Reset animation tracker for egg knight
-    deviled_egg_index = 0.0   # Reset deviled egg animation tracker
+    egg_knight_index = 0.0
+    deviled_egg_index = 0.0
     lives = 3
     invincible_timer = 0
     game_speed = 5
@@ -566,6 +607,7 @@ def reset_game():
     egg_king_index = 0.0
     last_powerup_score = 0
 
+    current_spawn_interval = 1500
     pygame.time.set_timer(obstacle_timer, 1500)
     bg_music.play(loops=-1)
 
@@ -599,19 +641,36 @@ while running:
                     # Resume the game - shift start_time forward by however long we were paused so score doesn't jump
                     pause_duration = current_ticks - pause_start_time
                     start_time += pause_duration
+                    # Also shift the doubler start forward so the buff timer doesn't count paused time
+                    if score_doubler_start > 0:
+                        score_doubler_start += pause_duration
                     game_state = 'playing'
                     bg_music.play(loops=-1)
                 elif event.key == pygame.K_m:
                     bg_music.stop()
                     main_menu_music.play(loops=-1)
                     game_state = 'main_menu'
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if pause_btn_rect.collidepoint(event.pos):
+                    pause_duration = current_ticks - pause_start_time
+                    start_time += pause_duration
+                    if score_doubler_start > 0:
+                        score_doubler_start += pause_duration
+                    game_state = 'playing'
+                    bg_music.play(loops=-1)
 
         elif game_state == 'playing':
-            # Press P to pause
+            # Press P to pause, or click the on-screen pause button
             if event.type == pygame.KEYDOWN and event.key == pygame.K_p:
                 game_state = 'paused'
                 pause_start_time = current_ticks  # Record when the pause started so we can fix the score timer on resume
                 bg_music.stop()
+
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if pause_btn_rect.collidepoint(event.pos):
+                    game_state = 'paused'
+                    pause_start_time = current_ticks
+                    bg_music.stop()
 
             # Press 'W' to use screen clear bomb
             if event.type == pygame.KEYDOWN and event.key == pygame.K_w:
@@ -632,7 +691,7 @@ while running:
                             egg_king_next_spawn_score = score + 100 + (20 * egg_king_defeated_count)
                             # King potion is guaranteed to drop the moment the egg king is defeated
                             kp_rect = pygame.Rect(0, 0, 60, 60)
-                            kp_rect.midbottom = (randint(900, 1100), GROUND_Y - 5)
+                            kp_rect.midbottom = (randint(900, 1100), GROUND_Y + 2)
                             powerup_rect_list.append({'rect': kp_rect, 'type': 'king_potion'})
 
             # Handle jumping (Space or Mouse Click)
@@ -691,7 +750,14 @@ while running:
         new_level = score // 15
         if new_level > difficulty_level:
             difficulty_level = new_level
-            pygame.time.set_timer(obstacle_timer, max(600, 1500 - (difficulty_level * 150)))
+
+        # Recalculate the spawn interval and only update the timer if something actually changed,
+        # because calling set_timer every frame resets the countdown and enemies never spawn
+        base_interval = max(600, 1500 - (difficulty_level * 150))
+        spawn_interval = base_interval * 2 if current_ticks < slow_mo_until else base_interval
+        if spawn_interval != current_spawn_interval:
+            current_spawn_interval = spawn_interval
+            pygame.time.set_timer(obstacle_timer, current_spawn_interval)
 
         # Handle slow motion speed reduction
         current_speed = game_speed // 2 if current_ticks < slow_mo_until else game_speed
@@ -708,13 +774,13 @@ while running:
             egg_king_active = True
             egg_king_hp = 2 + (1 * egg_king_defeated_count)
 
-        # Spawn a power-up every 40 score points - king_potion is NOT in this pool, it only drops on egg king defeat
-        if score >= last_powerup_score + 40:
-            last_powerup_score = (score // 40) * 40
-            # Always force an egg_clear drop during boss phase; otherwise pick from the regular potion pool
+        # Spawn a power-up every 30 score points - king_potion is NOT in this pool, it only drops on egg king defeat
+        if score >= last_powerup_score + 30:
+            last_powerup_score = (score // 30) * 30
+            # Always force an egg bomb drop during boss phase, otherwise pick from the regular potion pool
             p_type = 'egg_clear' if egg_king_active else choice(['invincible', 'heart', 'egg_clear', 'slow_mo', 'triple_jump', 'score_doubler'])
             p_rect = pygame.Rect(0, 0, 60, 60)
-            p_rect.midbottom = (randint(900, 1100), GROUND_Y - 5)  # Lifted 5 units so potions sit above the ground
+            p_rect.midbottom = (randint(900, 1100), GROUND_Y + 2)  # Sitting just on the ground line
             powerup_rect_list.append({'rect': p_rect, 'type': p_type})
 
         # Render stars collected section directly below the score
@@ -732,6 +798,9 @@ while running:
             for i in range(egg_king_hp):
                 ek_heart_rect = egg_king_heart_surf.get_rect(topright=(780 - (i * 40), 20))
                 screen.blit(egg_king_heart_surf, ek_heart_rect)
+
+        # Draw the clickable pause button just below the heart row
+        draw_pause_button()
 
         # Move and clean up obstacles
         obstacle_rect_list = obstacle_movement(obstacle_rect_list)
@@ -779,6 +848,13 @@ while running:
         # Draw all active splatter visuals and process any deviled egg splatter damage
         draw_splatters()
 
+        # If deviled egg splatter killed the player, wrap up now before anything else runs
+        if not is_playing:
+            game_state = 'game_over'
+            total_stars += stars_collected   # Add this run's stars to the all-time total
+            bg_music.stop()
+            defeat_music.play(loops=-1)  # Play game over music on loop
+
         # Render active powerup tokens using their actual potion png artwork
         for pu in powerup_rect_list:
             if pu['type'] == 'invincible':
@@ -788,10 +864,7 @@ while running:
             elif pu['type'] == 'egg_clear':
                 screen.blit(egg_bomb_potion_surf, pu['rect'])
             elif pu['type'] == 'slow_mo':
-                # Slow mo retains a labeled circle since no dedicated png was specified
-                pygame.draw.circle(screen, "Cyan", pu['rect'].center, 15)
-                lbl_surf = small_font.render("S", True, "White")
-                screen.blit(lbl_surf, lbl_surf.get_rect(center=pu['rect'].center))
+                screen.blit(timeslow_potion_surf, pu['rect'])     # Draw time slow potion png
             elif pu['type'] == 'triple_jump':
                 screen.blit(triplejump_potion_surf, pu['rect'])
             elif pu['type'] == 'score_doubler':
